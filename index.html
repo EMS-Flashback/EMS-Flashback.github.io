@@ -1,0 +1,1289 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EMS Manager • FiveM RP</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Firebase SDK (compat pour GitHub Pages - pas de bundler) -->
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Space+Grotesk:wght@500;600&amp;display=swap');
+        
+        :root {
+            --tw-color-primary: #00d4ff;
+        }
+        
+        * {
+            transition-property: color, background-color, border-color, text-decoration-color, fill, stroke;
+            transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+            transition-duration: 150ms;
+        }
+        
+        .sidebar-link {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .sidebar-link.active {
+            background-color: #0a1729;
+            border-left: 4px solid #00d4ff;
+        }
+        
+        .card {
+            transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .card:hover {
+            transform: translateY(-2px);
+        }
+        
+        .modal {
+            animation: modalPop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        
+        @keyframes modalPop {
+            0% { transform: scale(0.95); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        
+        .dashboard-bg {
+            background: linear-gradient(90deg, #0a1729, #112233);
+        }
+    </style>
+</head>
+<body class="bg-zinc-950 text-white font-sans">
+    <!-- ÉCRAN DE CONNEXION -->
+    <div id="login-screen" class="min-h-screen flex items-center justify-center dashboard-bg">
+        <div class="max-w-md w-full mx-4 bg-zinc-900 rounded-3xl shadow-2xl p-8 border border-zinc-800">
+            <div class="flex flex-col items-center mb-8">
+                <div class="w-16 h-16 bg-cyan-500 rounded-2xl flex items-center justify-center text-4xl mb-4">🚑</div>
+                <h1 class="text-4xl font-bold tracking-tighter" style="font-family: 'Space Grotesk', sans-serif;">EMS Manager</h1>
+                <p class="text-cyan-400 text-sm mt-1">FiveM RP • Service Médical</p>
+            </div>
+            
+            <div class="space-y-6">
+                <div>
+                    <label class="block text-sm font-medium text-zinc-400 mb-1">Email</label>
+                    <input id="login-email" type="email" 
+                           class="w-full bg-zinc-800 border border-zinc-700 focus:border-cyan-500 rounded-2xl px-5 py-4 text-white placeholder-zinc-500 outline-none"
+                           placeholder="ton.email@ems.fr">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-zinc-400 mb-1">Mot de passe</label>
+                    <input id="login-password" type="password" 
+                           class="w-full bg-zinc-800 border border-zinc-700 focus:border-cyan-500 rounded-2xl px-5 py-4 text-white placeholder-zinc-500 outline-none"
+                           placeholder="••••••••">
+                </div>
+                
+                <button onclick="login()"
+                        class="w-full bg-cyan-500 hover:bg-cyan-400 text-black font-semibold py-4 rounded-2xl flex items-center justify-center gap-2 text-lg">
+                    <span>SE CONNECTER</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7-7 7" />
+                    </svg>
+                </button>
+                
+                <div class="text-center text-xs text-zinc-500">
+                    Seul un administrateur peut créer des comptes.<br>
+                    Contactez votre Admin pour un nouveau compte.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- APPLICATION PRINCIPALE -->
+    <div id="app-screen" class="hidden min-h-screen flex">
+        
+        <!-- SIDEBAR -->
+        <div id="sidebar" class="w-72 bg-zinc-900 border-r border-zinc-800 flex flex-col h-screen">
+            
+            <!-- Header Sidebar -->
+            <div class="px-6 py-8 border-b border-zinc-800 flex items-center gap-3">
+                <div class="w-9 h-9 bg-cyan-500 rounded-2xl flex items-center justify-center text-2xl">🚑</div>
+                <div>
+                    <h2 class="font-bold text-2xl tracking-tighter" style="font-family: 'Space Grotesk', sans-serif;">EMS Manager</h2>
+                    <p id="sidebar-role" class="text-xs text-cyan-400 uppercase font-medium"></p>
+                </div>
+            </div>
+            
+            <!-- Navigation -->
+            <div class="flex-1 overflow-y-auto py-4 px-3">
+                <div id="nav-common" class="space-y-1">
+                    <a onclick="navigate('dashboard')" class="sidebar-link flex items-center gap-3 px-5 py-4 rounded-2xl text-zinc-300 hover:text-white" id="nav-dashboard">
+                        <span class="text-xl">📊</span>
+                        <span class="font-medium">Tableau de bord</span>
+                    </a>
+                    <a onclick="navigate('service')" class="sidebar-link flex items-center gap-3 px-5 py-4 rounded-2xl text-zinc-300 hover:text-white" id="nav-service">
+                        <span class="text-xl">⏰</span>
+                        <span class="font-medium">Prise de service</span>
+                    </a>
+                    <a onclick="navigate('statut')" class="sidebar-link flex items-center gap-3 px-5 py-4 rounded-2xl text-zinc-300 hover:text-white" id="nav-statut">
+                        <span class="text-xl">📍</span>
+                        <span class="font-medium">Statut en service</span>
+                    </a>
+                    <a onclick="navigate('infos')" class="sidebar-link flex items-center gap-3 px-5 py-4 rounded-2xl text-zinc-300 hover:text-white" id="nav-infos">
+                        <span class="text-xl">📋</span>
+                        <span class="font-medium">Mes infos</span>
+                    </a>
+                    <a onclick="navigate('progression')" class="sidebar-link flex items-center gap-3 px-5 py-4 rounded-2xl text-zinc-300 hover:text-white" id="nav-progression">
+                        <span class="text-xl">📈</span>
+                        <span class="font-medium">Progression grade</span>
+                    </a>
+                </div>
+                
+                <!-- Navigation ADMIN uniquement -->
+                <div id="nav-admin" class="hidden mt-8">
+                    <div class="px-5 mb-2 text-xs font-medium text-zinc-500 uppercase tracking-widest">Administration</div>
+                    <div class="space-y-1">
+                        <a onclick="navigate('users')" class="sidebar-link flex items-center gap-3 px-5 py-4 rounded-2xl text-zinc-300 hover:text-white" id="nav-users">
+                            👥 <span class="font-medium">Gestion utilisateurs</span>
+                        </a>
+                        <a onclick="navigate('formations')" class="sidebar-link flex items-center gap-3 px-5 py-4 rounded-2xl text-zinc-300 hover:text-white" id="nav-formations">
+                            🎓 <span class="font-medium">Gestion formations</span>
+                        </a>
+                        <a onclick="navigate('grades')" class="sidebar-link flex items-center gap-3 px-5 py-4 rounded-2xl text-zinc-300 hover:text-white" id="nav-grades">
+                            ⭐ <span class="font-medium">Gestion grades</span>
+                        </a>
+                        <a onclick="navigate('service-admin')" class="sidebar-link flex items-center gap-3 px-5 py-4 rounded-2xl text-zinc-300 hover:text-white" id="nav-service-admin">
+                            🚨 <span class="font-medium">Utilisateurs en service</span>
+                        </a>
+                        <a onclick="navigate('statuts')" class="sidebar-link flex items-center gap-3 px-5 py-4 rounded-2xl text-zinc-300 hover:text-white" id="nav-statuts">
+                            🏷️ <span class="font-medium">Codes & Lieux</span>
+                        </a>
+                        <a onclick="navigate('backup')" class="sidebar-link flex items-center gap-3 px-5 py-4 rounded-2xl text-zinc-300 hover:text-white" id="nav-backup">
+                            💾 <span class="font-medium">Sauvegarde / Import</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Footer Sidebar -->
+            <div class="p-4 border-t border-zinc-800">
+                <div onclick="logout()" 
+                     class="flex items-center justify-center gap-2 text-red-400 hover:text-red-300 font-medium py-3 px-4 rounded-2xl cursor-pointer">
+                    <span>🚪 Déconnexion</span>
+                </div>
+                <div class="text-center text-[10px] text-zinc-500 mt-4">
+                    Version 1.0 • FiveM RP EMS
+                </div>
+            </div>
+        </div>
+        
+        <!-- CONTENU PRINCIPAL -->
+        <div class="flex-1 flex flex-col">
+            
+            <!-- Header principal -->
+            <header class="h-16 bg-zinc-900 border-b border-zinc-800 px-8 flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                    <button onclick="toggleSidebar()" class="lg:hidden text-2xl">☰</button>
+                    <h1 id="page-title" class="text-3xl font-semibold tracking-tighter"></h1>
+                </div>
+                
+                <div class="flex items-center gap-6">
+                    <!-- Info utilisateur -->
+                    <div class="flex items-center gap-3">
+                        <div class="text-right">
+                            <p id="header-name" class="font-semibold"></p>
+                            <p id="header-grade" class="text-xs text-cyan-400"></p>
+                        </div>
+                        <div id="header-avatar" class="w-9 h-9 bg-zinc-700 rounded-2xl flex items-center justify-center text-xl">🧑‍⚕️</div>
+                    </div>
+                    
+                    <!-- Indicateur en service -->
+                    <div onclick="if(userData && !userData.inService) startService(); else if(userData && userData.inService) endService();" 
+                         id="service-indicator"
+                         class="px-6 py-2 rounded-3xl flex items-center gap-2 cursor-pointer font-medium text-sm">
+                    </div>
+                </div>
+            </header>
+            
+            <!-- Zone de contenu dynamique -->
+            <div id="main-content" class="flex-1 p-8 overflow-auto">
+                <!-- Le contenu est injecté via JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    <!-- MODALS (générés dynamiquement via JS) -->
+    <div id="modal" onclick="if(event.target.id === 'modal') closeModal()" 
+         class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+        <div onclick="event.stopImmediatePropagation()" 
+             id="modal-content" class="modal bg-zinc-900 rounded-3xl max-w-lg w-full mx-4 p-8">
+            <!-- Contenu modal injecté par JS -->
+        </div>
+    </div>
+
+    <script>
+        // ====================== CONFIGURATION FIREBASE ======================
+       <!-- === FIREBASE SDK (Version Compat - pour simple HTML) === -->
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+
+<script>
+// ==================== TA CONFIGURATION FIREBASE ====================
+const firebaseConfig = {
+  apiKey: "AIzaSyD5aZ4Aci1Nsd_f24LgjpqLGNxf7v5DI_0",
+  authDomain: "ems-fivem-rp.firebaseapp.com",
+  projectId: "ems-fivem-rp",
+  storageBucket: "ems-fivem-rp.firebasestorage.app",
+  messagingSenderId: "349726236705",
+  appId: "1:349726236705:web:51c9d56a5b16067d068360",
+  measurementId: "G-F5QJP725Z1"
+};
+
+// Initialisation Firebase
+firebase.initializeApp(firebaseConfig);
+
+const auth = firebase.auth();
+const db = firebase.firestore();
+// =================================================================
+</script>
+
+        // ====================== INITIALISATION ======================
+        let auth, db;
+        let currentUser = null;
+        let userData = null;
+        let currentPage = 'dashboard';
+        let isAdmin = false;
+
+        // Collections Firestore
+        const COLLECTIONS = {
+            users: 'users',
+            grades: 'grades',
+            trainings: 'trainings',
+            codes: 'codes',
+            locations: 'locations',
+            serviceLogs: 'serviceLogs' // sous-collection par utilisateur
+        };
+
+        function initFirebase() {
+            firebase.initializeApp(firebaseConfig);
+            auth = firebase.auth();
+            db = firebase.firestore();
+            
+            // Auth state listener
+            auth.onAuthStateChanged(async (user) => {
+                if (user) {
+                    currentUser = user;
+                    await loadUserData();
+                    if (userData) {
+                        renderApp();
+                    } else {
+                        logout();
+                    }
+                } else {
+                    showLogin();
+                }
+            });
+        }
+
+        async function loadUserData() {
+            try {
+                const doc = await db.collection(COLLECTIONS.users).doc(currentUser.uid).get();
+                if (doc.exists) {
+                    userData = doc.data();
+                    isAdmin = userData.role === 'admin';
+                    return true;
+                }
+                return false;
+            } catch (e) {
+                console.error(e);
+                return false;
+            }
+        }
+
+        // ====================== AUTH ======================
+        async function login() {
+            const email = document.getElementById('login-email').value.trim();
+            const password = document.getElementById('login-password').value;
+            
+            if (!email || !password) {
+                alert("Veuillez remplir tous les champs");
+                return;
+            }
+            
+            try {
+                const res = await auth.signInWithEmailAndPassword(email, password);
+                // Le listener onAuthStateChanged va prendre le relais
+            } catch (error) {
+                alert("Erreur de connexion : " + error.message);
+            }
+        }
+
+        function logout() {
+            auth.signOut().then(() => {
+                currentUser = null;
+                userData = null;
+                showLogin();
+            });
+        }
+
+        function showLogin() {
+            document.getElementById('login-screen').classList.remove('hidden');
+            document.getElementById('app-screen').classList.add('hidden');
+        }
+
+        function renderApp() {
+            document.getElementById('login-screen').classList.add('hidden');
+            document.getElementById('app-screen').classList.remove('hidden');
+            
+            // Mise à jour sidebar
+            document.getElementById('sidebar-role').innerHTML = isAdmin 
+                ? `<span class="bg-amber-500 text-amber-950 text-[10px] px-2 py-px rounded">ADMIN</span>` 
+                : `<span class="bg-cyan-400 text-black text-[10px] px-2 py-px rounded">MEMBRE</span>`;
+            
+            // Affichage navigation admin
+            document.getElementById('nav-admin').classList.toggle('hidden', !isAdmin);
+            
+            // Header utilisateur
+            document.getElementById('header-name').textContent = userData.name || 'Membre EMS';
+            document.getElementById('header-grade').textContent = userData.grade || 'Recrue';
+            
+            navigate('dashboard'); // Page d'accueil par défaut
+        }
+
+        // ====================== NAVIGATION ======================
+        function navigate(page) {
+            currentPage = page;
+            
+            // Reset active links
+            document.querySelectorAll('.sidebar-link').forEach(link => link.classList.remove('active'));
+            
+            // Active le bon lien
+            const activeLink = document.getElementById('nav-' + page);
+            if (activeLink) activeLink.classList.add('active');
+            
+            document.getElementById('page-title').textContent = getPageTitle(page);
+            
+            const content = document.getElementById('main-content');
+            content.innerHTML = '';
+            
+            switch (page) {
+                case 'dashboard':
+                    renderDashboard(content);
+                    break;
+                case 'service':
+                    renderService(content);
+                    break;
+                case 'statut':
+                    renderStatut(content);
+                    break;
+                case 'infos':
+                    renderInfos(content);
+                    break;
+                case 'progression':
+                    renderProgression(content);
+                    break;
+                case 'users':
+                    isAdmin ? renderUsers(content) : renderNotAllowed(content);
+                    break;
+                case 'formations':
+                    isAdmin ? renderFormations(content) : renderNotAllowed(content);
+                    break;
+                case 'grades':
+                    isAdmin ? renderGrades(content) : renderNotAllowed(content);
+                    break;
+                case 'service-admin':
+                    isAdmin ? renderServiceAdmin(content) : renderNotAllowed(content);
+                    break;
+                case 'statuts':
+                    isAdmin ? renderStatuts(content) : renderNotAllowed(content);
+                    break;
+                case 'backup':
+                    isAdmin ? renderBackup(content) : renderNotAllowed(content);
+                    break;
+                default:
+                    content.innerHTML = `<p class="text-zinc-400">Page non implémentée</p>`;
+            }
+        }
+
+        function getPageTitle(page) {
+            const titles = {
+                dashboard: 'Tableau de bord',
+                service: 'Prise / Fin de service',
+                statut: 'Statut en service',
+                infos: 'Mes informations',
+                progression: 'Ma progression',
+                users: 'Gestion des utilisateurs',
+                formations: 'Gestion des formations',
+                grades: 'Gestion des grades',
+                'service-admin': 'Utilisateurs en service',
+                statuts: 'Codes & Lieux',
+                backup: 'Sauvegarde & Import'
+            };
+            return titles[page] || 'EMS Manager';
+        }
+
+        function renderNotAllowed(content) {
+            content.innerHTML = `
+                <div class="flex flex-col items-center justify-center h-full py-20">
+                    <div class="text-6xl mb-6">🔒</div>
+                    <h3 class="text-2xl font-medium">Accès réservé aux administrateurs</h3>
+                </div>`;
+        }
+
+        // ====================== DASHBOARD ======================
+        async function renderDashboard(content) {
+            let html = `
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <!-- Carte 1 : En service -->
+                    <div class="card bg-zinc-900 border border-zinc-700 rounded-3xl p-6">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-zinc-400 text-sm">En service actuellement</p>
+                                <h3 id="dash-en-service" class="text-5xl font-bold text-cyan-400 mt-2">0</h3>
+                            </div>
+                            <div class="text-5xl">🚨</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Carte 2 : Heures totales EMS -->
+                    <div class="card bg-zinc-900 border border-zinc-700 rounded-3xl p-6">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-zinc-400 text-sm">Heures totales EMS</p>
+                                <h3 id="dash-heures-totales" class="text-5xl font-bold text-white mt-2">${userData.totalHours ? userData.totalHours.toFixed(1) : '0.0'}</h3>
+                            </div>
+                            <div class="text-5xl">⏳</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Carte 3 : Grade -->
+                    <div class="card bg-zinc-900 border border-zinc-700 rounded-3xl p-6">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-zinc-400 text-sm">Votre grade</p>
+                                <h3 class="text-5xl font-bold text-amber-400 mt-2">${userData.grade || 'Recrue'}</h3>
+                            </div>
+                            <div class="text-5xl">⭐</div>
+                        </div>
+                    </div>
+                </div>`;
+            
+            // Liste des collègues en service (real-time)
+            html += `
+                <div class="mt-8">
+                    <h3 class="text-xl font-semibold mb-4 flex items-center gap-2">
+                        <span>👥</span> Collègues en service
+                    </h3>
+                    <div id="colleagues-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <!-- Rempli par snapshot -->
+                    </div>
+                </div>`;
+            
+            content.innerHTML = html;
+            
+            // Snapshot en temps réel des collègues en service
+            db.collection(COLLECTIONS.users)
+                .where('inService', '==', true)
+                .onSnapshot(snapshot => {
+                    const container = document.getElementById('colleagues-list');
+                    container.innerHTML = '';
+                    
+                    document.getElementById('dash-en-service').textContent = snapshot.size;
+                    
+                    if (snapshot.empty) {
+                        container.innerHTML = `<div class="col-span-full bg-zinc-800 rounded-3xl p-8 text-center text-zinc-400">Aucun collègue en service pour le moment.</div>`;
+                        return;
+                    }
+                    
+                    snapshot.forEach(doc => {
+                        const u = doc.data();
+                        const card = document.createElement('div');
+                        card.className = 'bg-zinc-800 border border-zinc-700 rounded-3xl p-5 flex gap-4';
+                        card.innerHTML = `
+                            <div class="flex-1">
+                                <p class="font-medium">${u.name}</p>
+                                <p class="text-xs text-zinc-400">${u.grade || ''}</p>
+                                ${u.currentCode ? `<p class="text-cyan-400 text-sm mt-2">📟 ${u.currentCode}</p>` : ''}
+                                ${u.currentLocation ? `<p class="text-sm">📍 ${u.currentLocation}</p>` : ''}
+                                ${u.currentComment ? `<p class="text-xs text-zinc-400 mt-1">"${u.currentComment}"</p>` : ''}
+                            </div>
+                            <div class="text-4xl">🚑</div>
+                        `;
+                        container.appendChild(card);
+                    });
+                });
+        }
+
+        // ====================== SERVICE (Utilisateur) ======================
+        function renderService(content) {
+            const inService = userData.inService || false;
+            
+            let html = `
+                <div class="max-w-2xl mx-auto">
+                    <div class="bg-zinc-900 border border-zinc-700 rounded-3xl p-10 text-center">
+                        <div class="text-7xl mb-6">${inService ? '🟢' : '⚪'}</div>
+                        <h2 class="text-4xl font-semibold mb-2">${inService ? 'Vous êtes en service' : 'Prêt à prendre votre service ?'}</h2>
+                        <p class="text-zinc-400 mb-8">${inService ? 'Appuyez sur le bouton ci-dessous pour terminer votre service.' : 'Appuyez sur le bouton pour commencer votre service EMS.'}</p>
+                        
+                        <button onclick="${inService ? 'endService()' : 'startService()'}" 
+                                class="w-full ${inService ? 'bg-red-500 hover:bg-red-600' : 'bg-emerald-500 hover:bg-emerald-600'} text-white font-semibold text-2xl py-6 rounded-3xl">
+                            ${inService ? '🔴 FIN DE SERVICE' : '🟢 PRISE DE SERVICE'}
+                        </button>
+                        
+                        ${inService ? `
+                        <div class="mt-6 text-sm text-zinc-400">
+                            Service commencé à <span id="service-start-time" class="font-mono"></span>
+                        </div>` : ''}
+                    </div>
+                </div>`;
+            
+            content.innerHTML = html;
+            
+            // Mise à jour temps de service si en service
+            if (inService && userData.serviceStart) {
+                const startTimeEl = document.getElementById('service-start-time');
+                const start = userData.serviceStart.toDate ? userData.serviceStart.toDate() : new Date(userData.serviceStart);
+                
+                setInterval(() => {
+                    if (startTimeEl) {
+                        const duration = Math.floor((Date.now() - start.getTime()) / 60000);
+                        startTimeEl.textContent = `${duration} minutes`;
+                    }
+                }, 1000);
+            }
+        }
+
+        async function startService() {
+            if (!userData) return;
+            
+            try {
+                await db.collection(COLLECTIONS.users).doc(currentUser.uid).update({
+                    inService: true,
+                    serviceStart: firebase.firestore.FieldValue.serverTimestamp(),
+                    currentCode: null,
+                    currentLocation: null,
+                    currentComment: ''
+                });
+                
+                // Rafraîchir les données utilisateur
+                await loadUserData();
+                navigate('service');
+                alert('✅ Vous êtes maintenant en service !');
+            } catch (e) {
+                alert('Erreur lors de la prise de service');
+            }
+        }
+
+        async function endService() {
+            if (!userData || !userData.inService) return;
+            
+            try {
+                const start = userData.serviceStart.toDate ? userData.serviceStart.toDate() : new Date(userData.serviceStart);
+                const durationHours = (Date.now() - start.getTime()) / (1000 * 60 * 60);
+                
+                // Ajout du log de service
+                await db.collection(COLLECTIONS.users).doc(currentUser.uid)
+                    .collection(COLLECTIONS.serviceLogs)
+                    .add({
+                        start: userData.serviceStart,
+                        end: firebase.firestore.FieldValue.serverTimestamp(),
+                        hours: parseFloat(durationHours.toFixed(2))
+                    });
+                
+                // Mise à jour utilisateur
+                await db.collection(COLLECTIONS.users).doc(currentUser.uid).update({
+                    inService: false,
+                    serviceStart: null,
+                    totalHours: firebase.firestore.FieldValue.increment(durationHours),
+                    currentCode: null,
+                    currentLocation: null,
+                    currentComment: ''
+                });
+                
+                await loadUserData();
+                navigate('service');
+                alert(`✅ Service terminé ! +${durationHours.toFixed(1)} heure(s) ajoutée(s)`);
+            } catch (e) {
+                console.error(e);
+                alert('Erreur lors de la fin de service');
+            }
+        }
+
+        // ====================== STATUT ======================
+        async function renderStatut(content) {
+            if (!userData.inService) {
+                content.innerHTML = `<div class="text-center py-20 text-2xl text-zinc-400">Vous devez être en service pour modifier votre statut.</div>`;
+                return;
+            }
+            
+            // Récupération des codes et lieux
+            const codesSnap = await db.collection(COLLECTIONS.codes).get();
+            const locationsSnap = await db.collection(COLLECTIONS.locations).get();
+            
+            let codesHTML = codesSnap.docs.map(doc => {
+                const c = doc.data();
+                return `<option value="${c.name}">${c.name}</option>`;
+            }).join('');
+            
+            let locationsHTML = locationsSnap.docs.map(doc => {
+                const l = doc.data();
+                return `<option value="${l.name}">${l.name}</option>`;
+            }).join('');
+            
+            content.innerHTML = `
+                <div class="max-w-xl mx-auto bg-zinc-900 border border-zinc-700 rounded-3xl p-8">
+                    <h3 class="text-xl font-semibold mb-6">Mettre à jour mon statut</h3>
+                    
+                    <div class="space-y-6">
+                        <div>
+                            <label class="text-sm text-zinc-400">Code</label>
+                            <select id="select-code" class="w-full mt-2 bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4">
+                                <option value="">-- Choisir un code --</option>
+                                ${codesHTML}
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label class="text-sm text-zinc-400">Lieu</label>
+                            <select id="select-location" class="w-full mt-2 bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4">
+                                <option value="">-- Choisir un lieu --</option>
+                                ${locationsHTML}
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label class="text-sm text-zinc-400">Commentaire (optionnel)</label>
+                            <input id="status-comment" type="text" placeholder="Ex: En route vers le LS Medical Center" 
+                                   class="w-full mt-2 bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4">
+                        </div>
+                        
+                        <button onclick="updateStatus()" 
+                                class="w-full py-5 bg-cyan-500 hover:bg-cyan-400 text-black rounded-3xl font-semibold">
+                            VALIDER LE STATUT
+                        </button>
+                    </div>
+                </div>`;
+        }
+
+        async function updateStatus() {
+            const code = document.getElementById('select-code').value;
+            const location = document.getElementById('select-location').value;
+            const comment = document.getElementById('status-comment').value;
+            
+            try {
+                await db.collection(COLLECTIONS.users).doc(currentUser.uid).update({
+                    currentCode: code || null,
+                    currentLocation: location || null,
+                    currentComment: comment || ''
+                });
+                await loadUserData();
+                alert('✅ Statut mis à jour !');
+                navigate('statut');
+            } catch (e) {
+                alert('Erreur');
+            }
+        }
+
+        // ====================== INFOS ======================
+        function renderInfos(content) {
+            content.innerHTML = `
+                <div class="max-w-2xl mx-auto grid grid-cols-2 gap-6">
+                    <div class="bg-zinc-900 border border-zinc-700 rounded-3xl p-8">
+                        <p class="text-sm text-zinc-400">Grade actuel</p>
+                        <p class="text-4xl font-semibold mt-2">${userData.grade || 'Recrue'}</p>
+                    </div>
+                    <div class="bg-zinc-900 border border-zinc-700 rounded-3xl p-8">
+                        <p class="text-sm text-zinc-400">Heures totales</p>
+                        <p class="text-4xl font-semibold mt-2">${userData.totalHours ? userData.totalHours.toFixed(1) : '0.0'}h</p>
+                    </div>
+                    <div class="bg-zinc-900 border border-zinc-700 rounded-3xl p-8 col-span-2">
+                        <p class="text-sm text-zinc-400 mb-4">Formations validées</p>
+                        <div class="flex flex-wrap gap-2" id="formations-list">
+                            ${userData.trainings && userData.trainings.length 
+                                ? userData.trainings.map(t => `<span class="bg-emerald-900 text-emerald-300 text-sm px-4 py-2 rounded-2xl">${t}</span>`).join('')
+                                : `<p class="text-zinc-400">Aucune formation validée pour le moment.</p>`}
+                        </div>
+                    </div>
+                </div>`;
+        }
+
+        // ====================== PROGRESSION ======================
+        async function renderProgression(content) {
+            // Récupérer tous les grades
+            const gradesSnap = await db.collection(COLLECTIONS.grades).get();
+            const grades = gradesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })).sort((a, b) => a.requiredHours - b.requiredHours);
+            
+            // Trouver le prochain grade
+            let nextGrade = null;
+            const currentGradeName = userData.grade;
+            
+            for (let i = 0; i < grades.length; i++) {
+                if (grades[i].name === currentGradeName && i + 1 < grades.length) {
+                    nextGrade = grades[i + 1];
+                    break;
+                }
+            }
+            
+            // Calcul des semaines (basé sur les logs)
+            const logsSnap = await db.collection(COLLECTIONS.users).doc(currentUser.uid).collection(COLLECTIONS.serviceLogs).get();
+            let totalWeeks = 0;
+            if (!logsSnap.empty) {
+                const weeksSet = new Set();
+                logsSnap.forEach(doc => {
+                    const log = doc.data();
+                    const date = log.start.toDate ? log.start.toDate() : new Date(log.start);
+                    const year = date.getFullYear();
+                    const week = getWeekNumber(date);
+                    weeksSet.add(`${year}-W${week}`);
+                });
+                totalWeeks = weeksSet.size;
+            }
+            
+            const hoursMissing = nextGrade ? Math.max(0, nextGrade.requiredHours - (userData.totalHours || 0)) : 0;
+            const weeksMissing = nextGrade ? Math.max(0, nextGrade.requiredWeeks - totalWeeks) : 0;
+            
+            let html = `
+                <div class="max-w-3xl mx-auto">
+                    <h3 class="text-2xl font-semibold mb-8">Progression vers le grade supérieur</h3>
+                    ${nextGrade ? `
+                    <div class="bg-zinc-900 border border-zinc-700 rounded-3xl p-8">
+                        <div class="flex justify-between">
+                            <div>
+                                <p class="uppercase text-xs tracking-widest text-amber-400">PROCHAIN GRADE</p>
+                                <p class="text-5xl font-bold">${nextGrade.name}</p>
+                            </div>
+                            <div class="text-right">
+                                <span class="px-4 py-2 bg-amber-400 text-black rounded-3xl text-sm font-medium">Objectif</span>
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-3 gap-6 mt-10">
+                            <div class="text-center">
+                                <div class="text-4xl mb-1">⏳</div>
+                                <p class="text-sm text-zinc-400">Heures restantes</p>
+                                <p class="text-4xl font-bold text-cyan-400">${hoursMissing}</p>
+                            </div>
+                            <div class="text-center">
+                                <div class="text-4xl mb-1">📅</div>
+                                <p class="text-sm text-zinc-400">Semaines restantes</p>
+                                <p class="text-4xl font-bold text-cyan-400">${weeksMissing}</p>
+                            </div>
+                            <div class="text-center">
+                                <div class="text-4xl mb-1">🎓</div>
+                                <p class="text-sm text-zinc-400">Formations manquantes</p>
+                                <div class="mt-2">
+                                    ${nextGrade.mandatoryTrainings && nextGrade.mandatoryTrainings.length 
+                                        ? nextGrade.mandatoryTrainings.filter(t => !(userData.trainings || []).includes(t))
+                                            .map(t => `<div class="inline-block bg-red-900 text-red-300 text-xs px-3 py-1 rounded-2xl mr-1">${t}</div>`).join('')
+                                        : `<span class="text-emerald-400">✅ Toutes validées</span>`}
+                                </div>
+                            </div>
+                        </div>
+                    </div>` : `<p class="text-center text-emerald-400 text-2xl">Vous avez atteint le grade maximum !</p>`}
+                </div>`;
+            
+            content.innerHTML = html;
+        }
+
+        function getWeekNumber(d) {
+            d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+            d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+            const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+            const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+            return weekNo;
+        }
+
+        // ====================== ADMIN : UTILISATEURS ======================
+        async function renderUsers(content) {
+            const usersSnap = await db.collection(COLLECTIONS.users).get();
+            
+            let html = `
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-2xl font-semibold">Utilisateurs</h3>
+                    <button onclick="showCreateUserModal()" 
+                            class="px-6 py-3 bg-cyan-500 hover:bg-cyan-400 text-black rounded-2xl font-medium flex items-center gap-2">
+                        <span>➕</span> Créer un utilisateur
+                    </button>
+                </div>
+                
+                <div class="grid grid-cols-1 gap-4" id="users-list">
+                    <!-- Rempli par JS -->
+                </div>`;
+            
+            content.innerHTML = html;
+            
+            const container = document.getElementById('users-list');
+            
+            usersSnap.forEach(doc => {
+                const u = doc.data();
+                const card = document.createElement('div');
+                card.className = 'bg-zinc-900 border border-zinc-700 rounded-3xl p-6 flex items-center justify-between';
+                card.innerHTML = `
+                    <div class="flex items-center gap-4">
+                        <div class="text-4xl">🧑‍⚕️</div>
+                        <div>
+                            <p class="font-semibold">${u.name} <span class="text-xs text-zinc-400">(${u.uniqueID || '—'})</span></p>
+                            <p class="text-sm text-zinc-400">${u.email}</p>
+                            <p class="text-xs uppercase ${u.role === 'admin' ? 'text-amber-400' : 'text-cyan-400'}">${u.role} • ${u.grade}</p>
+                        </div>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="editUser('${doc.id}')" class="px-5 py-2 text-sm border border-zinc-700 hover:border-cyan-400 rounded-2xl">Modifier</button>
+                        <button onclick="deleteUser('${doc.id}')" class="px-5 py-2 text-sm border border-red-400 text-red-400 hover:bg-red-400 hover:text-black rounded-2xl">Supprimer</button>
+                    </div>`;
+                container.appendChild(card);
+            });
+        }
+
+        async function showCreateUserModal() {
+            const gradesSnap = await db.collection(COLLECTIONS.grades).get();
+            const gradeOptions = gradesSnap.docs.map(d => `<option value="${d.data().name}">${d.data().name}</option>`).join('');
+            
+            const modalHTML = `
+                <h2 class="text-2xl font-semibold mb-6">Créer un nouvel utilisateur</h2>
+                <div class="space-y-4">
+                    <input id="new-name" placeholder="Nom complet" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4">
+                    <input id="new-email" type="email" placeholder="Email" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4">
+                    <input id="new-password" type="password" placeholder="Mot de passe" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4">
+                    <input id="new-uniqueid" placeholder="ID Unique FiveM" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4">
+                    
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs text-zinc-400 mb-1">Rôle</label>
+                            <select id="new-role" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4">
+                                <option value="utilisateur">Utilisateur</option>
+                                <option value="admin">Administrateur</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-zinc-400 mb-1">Grade</label>
+                            <select id="new-grade" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4">
+                                ${gradeOptions}
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <button onclick="createUser()" class="w-full py-4 bg-cyan-500 text-black rounded-2xl font-semibold mt-4">CRÉER LE COMPTE</button>
+                </div>`;
+            
+            showModal(modalHTML);
+        }
+
+        async function createUser() {
+            const name = document.getElementById('new-name').value.trim();
+            const email = document.getElementById('new-email').value.trim();
+            const password = document.getElementById('new-password').value;
+            const uniqueID = document.getElementById('new-uniqueid').value.trim();
+            const role = document.getElementById('new-role').value;
+            const grade = document.getElementById('new-grade').value;
+            
+            if (!name || !email || !password) return alert('Champs obligatoires manquants');
+            
+            try {
+                // Création du compte Auth
+                const userCred = await auth.createUserWithEmailAndPassword(email, password);
+                
+                // Création du document Firestore
+                await db.collection(COLLECTIONS.users).doc(userCred.user.uid).set({
+                    name: name,
+                    email: email,
+                    role: role,
+                    grade: grade,
+                    uniqueID: uniqueID,
+                    totalHours: 0,
+                    trainings: [],
+                    inService: false,
+                    serviceStart: null,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                
+                closeModal();
+                alert('✅ Utilisateur créé avec succès !');
+                navigate('users');
+            } catch (err) {
+                alert('Erreur : ' + err.message);
+            }
+        }
+
+        async function editUser(uid) {
+            const userDoc = await db.collection(COLLECTIONS.users).doc(uid).get();
+            const u = userDoc.data();
+            
+            const modalHTML = `
+                <h2 class="text-2xl font-semibold mb-6">Modifier utilisateur</h2>
+                <div class="space-y-4">
+                    <input id="edit-name" value="${u.name}" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4">
+                    <select id="edit-role" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4">
+                        <option value="utilisateur" ${u.role === 'utilisateur' ? 'selected' : ''}>Utilisateur</option>
+                        <option value="admin" ${u.role === 'admin' ? 'selected' : ''}>Administrateur</option>
+                    </select>
+                    <select id="edit-grade" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4">
+                        <!-- Grades seront chargés dynamiquement -->
+                    </select>
+                    <button onclick="saveUserEdit('${uid}')" class="w-full py-4 bg-cyan-500 text-black rounded-2xl font-semibold">ENREGISTRER</button>
+                </div>`;
+            
+            showModal(modalHTML);
+            
+            // Charger grades pour le select
+            const gradesSnap = await db.collection(COLLECTIONS.grades).get();
+            const select = document.getElementById('edit-grade');
+            gradesSnap.forEach(doc => {
+                const g = doc.data();
+                const option = document.createElement('option');
+                option.value = g.name;
+                option.textContent = g.name;
+                if (g.name === u.grade) option.selected = true;
+                select.appendChild(option);
+            });
+        }
+
+        async function saveUserEdit(uid) {
+            const name = document.getElementById('edit-name').value;
+            const role = document.getElementById('edit-role').value;
+            const grade = document.getElementById('edit-grade').value;
+            
+            await db.collection(COLLECTIONS.users).doc(uid).update({
+                name, role, grade
+            });
+            
+            closeModal();
+            navigate('users');
+        }
+
+        async function deleteUser(uid) {
+            if (!confirm('Supprimer cet utilisateur ? (Action irréversible)')) return;
+            await db.collection(COLLECTIONS.users).doc(uid).delete();
+            navigate('users');
+        }
+
+        // ====================== ADMIN : FORMATIONS ======================
+        async function renderFormations(content) {
+            const trainingsSnap = await db.collection(COLLECTIONS.trainings).get();
+            
+            let html = `
+                <div class="flex justify-between mb-6">
+                    <h3 class="text-2xl font-semibold">Formations</h3>
+                    <button onclick="showCreateFormationModal()" class="px-6 py-3 bg-cyan-500 text-black rounded-2xl">+ Nouvelle formation</button>
+                </div>
+                <div class="flex flex-wrap gap-3" id="formations-container"></div>`;
+            
+            content.innerHTML = html;
+            
+            const container = document.getElementById('formations-container');
+            trainingsSnap.forEach(doc => {
+                const f = doc.data();
+                const el = document.createElement('div');
+                el.className = 'bg-zinc-800 rounded-3xl px-6 py-4 flex items-center justify-between min-w-[240px]';
+                el.innerHTML = `
+                    <span class="font-medium">${f.name}</span>
+                    <button onclick="deleteFormation('${doc.id}')" class="text-red-400 text-xl">🗑</button>`;
+                container.appendChild(el);
+            });
+        }
+
+        function showCreateFormationModal() {
+            const modalHTML = `
+                <h2 class="text-2xl font-semibold mb-6">Nouvelle formation</h2>
+                <input id="new-formation-name" placeholder="Nom de la formation" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4 mb-6">
+                <button onclick="createFormation()" class="w-full py-4 bg-cyan-500 text-black rounded-2xl font-semibold">Créer la formation</button>`;
+            showModal(modalHTML);
+        }
+
+        async function createFormation() {
+            const name = document.getElementById('new-formation-name').value.trim();
+            if (!name) return;
+            await db.collection(COLLECTIONS.trainings).add({ name });
+            closeModal();
+            navigate('formations');
+        }
+
+        async function deleteFormation(id) {
+            if (confirm('Supprimer cette formation ?')) {
+                await db.collection(COLLECTIONS.trainings).doc(id).delete();
+                navigate('formations');
+            }
+        }
+
+        // ====================== ADMIN : GRADES ======================
+        async function renderGrades(content) {
+            const gradesSnap = await db.collection(COLLECTIONS.grades).get();
+            
+            let html = `
+                <div class="flex justify-between mb-6">
+                    <h3 class="text-2xl font-semibold">Grades</h3>
+                    <button onclick="showCreateGradeModal()" class="px-6 py-3 bg-cyan-500 text-black rounded-2xl">+ Nouveau grade</button>
+                </div>
+                <table class="w-full">
+                    <thead>
+                        <tr class="text-left text-xs text-zinc-400 border-b border-zinc-700">
+                            <th class="pb-3">Nom</th>
+                            <th class="pb-3">Heures requises</th>
+                            <th class="pb-3">Semaines requises</th>
+                            <th class="pb-3">Formations obligatoires</th>
+                        </tr>
+                    </thead>
+                    <tbody id="grades-body" class="text-sm"></tbody>
+                </table>`;
+            
+            content.innerHTML = html;
+            
+            const tbody = document.getElementById('grades-body');
+            gradesSnap.forEach(doc => {
+                const g = doc.data();
+                const row = document.createElement('tr');
+                row.className = 'border-b border-zinc-700';
+                row.innerHTML = `
+                    <td class="py-5 font-medium">${g.name}</td>
+                    <td class="py-5">${g.requiredHours}h</td>
+                    <td class="py-5">${g.requiredWeeks} semaines</td>
+                    <td class="py-5">${g.mandatoryTrainings ? g.mandatoryTrainings.join(', ') : '—'}</td>`;
+                tbody.appendChild(row);
+            });
+        }
+
+        function showCreateGradeModal() {
+            const modalHTML = `
+                <h2 class="text-2xl font-semibold mb-6">Créer un grade</h2>
+                <div class="space-y-4">
+                    <input id="grade-name" placeholder="Nom du grade" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <input id="grade-hours" type="number" placeholder="Heures requises" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4">
+                        <input id="grade-weeks" type="number" placeholder="Semaines requises" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4">
+                    </div>
+                    <input id="grade-trainings" placeholder="Formations obligatoires (séparées par virgule)" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4">
+                    <button onclick="createGrade()" class="w-full py-4 bg-cyan-500 text-black rounded-2xl font-semibold">Créer le grade</button>
+                </div>`;
+            showModal(modalHTML);
+        }
+
+        async function createGrade() {
+            const name = document.getElementById('grade-name').value.trim();
+            const hours = parseFloat(document.getElementById('grade-hours').value);
+            const weeks = parseInt(document.getElementById('grade-weeks').value);
+            const trainingsStr = document.getElementById('grade-trainings').value;
+            const mandatoryTrainings = trainingsStr ? trainingsStr.split(',').map(t => t.trim()) : [];
+            
+            await db.collection(COLLECTIONS.grades).add({
+                name,
+                requiredHours: hours,
+                requiredWeeks: weeks,
+                mandatoryTrainings
+            });
+            
+            closeModal();
+            navigate('grades');
+        }
+
+        // ====================== ADMIN : SERVICE (Forcer dépointage) ======================
+        async function renderServiceAdmin(content) {
+            content.innerHTML = `<div id="service-admin-list" class="space-y-4"></div>`;
+            
+            // Snapshot temps réel
+            db.collection(COLLECTIONS.users)
+                .where('inService', '==', true)
+                .onSnapshot(snapshot => {
+                    const container = document.getElementById('service-admin-list');
+                    container.innerHTML = `<h3 class="text-xl font-semibold mb-4">Utilisateurs en service (${snapshot.size})</h3>`;
+                    
+                    if (snapshot.empty) {
+                        container.innerHTML += `<p class="text-zinc-400">Personne en service.</p>`;
+                        return;
+                    }
+                    
+                    snapshot.forEach(doc => {
+                        const u = doc.data();
+                        const div = document.createElement('div');
+                        div.className = 'bg-zinc-900 border border-zinc-700 rounded-3xl p-6 flex justify-between items-center';
+                        div.innerHTML = `
+                            <div>
+                                <p class="font-medium">${u.name}</p>
+                                <p class="text-xs text-zinc-400">${u.currentCode || '—'} • ${u.currentLocation || '—'}</p>
+                            </div>
+                            <button onclick="forceCheckout('${doc.id}')" class="px-6 py-2 bg-red-500 hover:bg-red-600 rounded-2xl text-white text-sm">Forcer dépointage</button>`;
+                        container.appendChild(div);
+                    });
+                });
+        }
+
+        async function forceCheckout(uid) {
+            if (!confirm('Forcer la fin de service ?')) return;
+            await db.collection(COLLECTIONS.users).doc(uid).update({ inService: false, serviceStart: null });
+        }
+
+        // ====================== ADMIN : CODES & LIEUX ======================
+        async function renderStatuts(content) {
+            // Codes
+            const codesSnap = await db.collection(COLLECTIONS.codes).get();
+            // Lieux
+            const locationsSnap = await db.collection(COLLECTIONS.locations).get();
+            
+            let html = `
+                <div class="grid grid-cols-2 gap-8">
+                    <!-- CODES -->
+                    <div>
+                        <div class="flex justify-between mb-4">
+                            <h3 class="font-semibold text-xl">Codes (ex: Code 3, Code 6)</h3>
+                            <button onclick="addCode()" class="text-cyan-400 text-sm">+ Ajouter</button>
+                        </div>
+                        <div id="codes-list" class="space-y-2"></div>
+                    </div>
+                    
+                    <!-- LIEUX -->
+                    <div>
+                        <div class="flex justify-between mb-4">
+                            <h3 class="font-semibold text-xl">Lieux</h3>
+                            <button onclick="addLocation()" class="text-cyan-400 text-sm">+ Ajouter</button>
+                        </div>
+                        <div id="locations-list" class="space-y-2"></div>
+                    </div>
+                </div>`;
+            
+            content.innerHTML = html;
+            
+            // Codes
+            const codesContainer = document.getElementById('codes-list');
+            codesSnap.forEach(doc => {
+                const el = document.createElement('div');
+                el.className = 'flex justify-between bg-zinc-800 rounded-2xl px-5 py-3';
+                el.innerHTML = `<span>${doc.data().name}</span><button onclick="deleteCode('${doc.id}')" class="text-red-400">×</button>`;
+                codesContainer.appendChild(el);
+            });
+            
+            // Lieux
+            const locContainer = document.getElementById('locations-list');
+            locationsSnap.forEach(doc => {
+                const el = document.createElement('div');
+                el.className = 'flex justify-between bg-zinc-800 rounded-2xl px-5 py-3';
+                el.innerHTML = `<span>${doc.data().name}</span><button onclick="deleteLocation('${doc.id}')" class="text-red-400">×</button>`;
+                locContainer.appendChild(el);
+            });
+        }
+
+        async function addCode() {
+            const name = prompt('Nom du code (ex: Code 3)');
+            if (name) await db.collection(COLLECTIONS.codes).add({ name });
+            navigate('statuts');
+        }
+
+        async function deleteCode(id) {
+            await db.collection(COLLECTIONS.codes).doc(id).delete();
+            navigate('statuts');
+        }
+
+        async function addLocation() {
+            const name = prompt('Nom du lieu');
+            if (name) await db.collection(COLLECTIONS.locations).add({ name });
+            navigate('statuts');
+        }
+
+        async function deleteLocation(id) {
+            await db.collection(COLLECTIONS.locations).doc(id).delete();
+            navigate('statuts');
+        }
+
+        // ====================== ADMIN : BACKUP ======================
+        async function renderBackup(content) {
+            content.innerHTML = `
+                <div class="max-w-xl mx-auto bg-zinc-900 border border-zinc-700 rounded-3xl p-10">
+                    <h3 class="text-2xl font-semibold mb-8">Sauvegarde & Import JSON</h3>
+                    
+                    <div class="flex gap-6">
+                        <button onclick="exportAllData()" 
+                                class="flex-1 py-6 bg-emerald-500 hover:bg-emerald-600 text-black rounded-3xl font-semibold">
+                            📤 EXPORTER TOUT EN JSON
+                        </button>
+                        
+                        <label class="flex-1 py-6 bg-amber-500 hover:bg-amber-600 text-black rounded-3xl font-semibold text-center cursor-pointer">
+                            📥 IMPORTER JSON
+                            <input type="file" id="import-file" accept=".json" class="hidden" onchange="importData(event)">
+                        </label>
+                    </div>
+                    
+                    <p class="text-xs text-zinc-500 mt-8 text-center">Toutes les collections (users, grades, trainings, codes, locations) seront sauvegardées.</p>
+                </div>`;
+        }
+
+        async function exportAllData() {
+            const data = {};
+            
+            for (const [key, collectionName] of Object.entries(COLLECTIONS)) {
+                if (collectionName === 'serviceLogs') continue; // sous-collection, on saute
+                const snap = await db.collection(collectionName).get();
+                data[collectionName] = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            }
+            
+            const jsonString = JSON.stringify(data, null, 2);
+            const blob = new Blob([jsonString], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `ems-backup-${new Date().toISOString().slice(0,10)}.json`;
+            a.click();
+            
+            URL.revokeObjectURL(url);
+        }
+
+        async function importData(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = async function(ev) {
+                try {
+                    const imported = JSON.parse(ev.target.result);
+                    
+                    if (confirm('⚠️ Attention : cela écrasera les données existantes. Continuer ?')) {
+                        // Import progressif
+                        for (const [colName, items] of Object.entries(imported)) {
+                            const batch = db.batch();
+                            items.forEach(item => {
+                                const ref = db.collection(colName).doc(item.id);
+                                batch.set(ref, item);
+                            });
+                            await batch.commit();
+                        }
+                        alert('✅ Import terminé avec succès !');
+                        navigate('backup');
+                    }
+                } catch (err) {
+                    alert('Erreur de lecture du JSON');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // ====================== MODAL UTILS ======================
+        function showModal(innerHTML) {
+            const modal = document.getElementById('modal');
+            const content = document.getElementById('modal-content');
+            content.innerHTML = innerHTML;
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        // ====================== SIDEBAR MOBILE ======================
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            sidebar.style.transform = sidebar.style.transform === 'translateX(0px)' ? 'translateX(-100%)' : 'translateX(0px)';
+        }
+
+        // ====================== LANCEMENT ======================
+        window.onload = function() {
+            initFirebase();
+            
+            // Tailwind script
+            return {
+                configUser: () => ({
+                    theme: {
+                        extend: {}
+                    }
+                })
+            };
+        };
+    </script>
+</body>
+</html>
