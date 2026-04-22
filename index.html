@@ -93,19 +93,19 @@
             <div class="label mb-1">Identifiant</div>
             <div class="relative">
               <svg class="absolute left-3 top-2.5" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-              <input id="login-user" class="input pl-9" placeholder="admin" value="admin" autocomplete="username"/>
+              <input id="login-user" class="input pl-9" placeholder="Votre identifiant" autocomplete="username"/>
             </div>
           </div>
           <div>
             <div class="label mb-1">Mot de passe</div>
             <div class="relative">
               <svg class="absolute left-3 top-2.5" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-              <input id="login-pass" type="password" class="input pl-9" placeholder="••••••••" value="admin" autocomplete="current-password"/>
+              <input id="login-pass" type="password" class="input pl-9" placeholder="••••••••" autocomplete="current-password"/>
             </div>
           </div>
           <div id="login-error" class="text-sm text-red-600 hidden">Identifiants incorrects.</div>
           <button class="btn btn-primary w-full justify-center py-3 text-sm" type="submit">Se connecter</button>
-          <p class="text-center text-xs text-slate-500 pt-2">Admin par défaut : <span class="text-brand-600 font-semibold">admin</span> / <span class="text-brand-600 font-semibold">admin</span></p>
+          <p class="text-center text-xs text-slate-500 pt-2">Premier démarrage : admin / admin (pensez à le changer).</p>
         </form>
         <div class="text-center mt-6">
           <button type="button" onclick="resetAllData()" class="text-xs text-slate-400 hover:text-red-600 underline">Réinitialiser les données</button>
@@ -147,6 +147,18 @@
           Codes Statut
         </div>
       </nav>
+      <div class="p-3 border-t border-slate-200 space-y-2">
+        <div class="label mb-1 px-1">Sauvegarde</div>
+        <button onclick="exportData()" class="btn btn-ghost w-full justify-center text-xs">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+          Exporter (.json)
+        </button>
+        <button onclick="document.getElementById('import-file').click()" class="btn btn-ghost w-full justify-center text-xs">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+          Importer (.json)
+        </button>
+        <input type="file" id="import-file" accept="application/json,.json" class="hidden" onchange="importData(event)"/>
+      </div>
       <div class="p-4 border-t border-slate-200">
         <div class="text-xs text-slate-500">Connecté en tant que</div>
         <div id="admin-who" class="font-semibold text-sm">Administrateur</div>
@@ -424,6 +436,62 @@ function resetAllData() {
   data = defaultData(); save(); toast('Données réinitialisées', 'ok'); renderAll();
 }
 
+/* Export the current data as a downloadable JSON file. Admin only. */
+function exportData() {
+  const u = currentUser();
+  if (!u || u.role !== 'admin') { toast("Accès réservé à l'administrateur", 'err'); return; }
+  const payload = JSON.stringify({ exportedAt: new Date().toISOString(), version: 1, data }, null, 2);
+  const blob = new Blob([payload], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const d = new Date(), pad = n => String(n).padStart(2,'0');
+  a.href = url;
+  a.download = `portail-ems-sauvegarde-${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  toast('Sauvegarde exportée', 'ok');
+}
+
+/* Import data from a JSON file selected by the user. Admin only. */
+function importData(event) {
+  const u = currentUser();
+  if (!u || u.role !== 'admin') { toast("Accès réservé à l'administrateur", 'err'); event.target.value=''; return; }
+  const file = event.target.files?.[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const parsed = JSON.parse(reader.result);
+      const payload = parsed?.data ?? parsed;
+      if (!payload || !Array.isArray(payload.users) || !Array.isArray(payload.grades)
+          || !Array.isArray(payload.codes) || !Array.isArray(payload.formations)) {
+        toast('Fichier invalide', 'err'); return;
+      }
+      if (!confirm('Importer ce fichier va remplacer toutes les données actuelles. Continuer ?')) return;
+      data = {
+        users: payload.users,
+        grades: payload.grades,
+        codes: payload.codes,
+        formations: payload.formations,
+        history: Array.isArray(payload.history) ? payload.history : [],
+        session: null,
+      };
+      // Ensure admin account still exists so admin can reconnect
+      if (!data.users.some(x => x.role === 'admin')) {
+        data.users.unshift({ id:'u-admin', name:'Administrateur', login:'admin', password:'admin', grade:'—', hours:0, formations:[], role:'admin' });
+      }
+      save();
+      toast('Import terminé', 'ok');
+      logout();
+    } catch (e) {
+      toast('Fichier JSON illisible', 'err');
+    } finally {
+      event.target.value = '';
+    }
+  };
+  reader.readAsText(file);
+}
+
 /* ========================= HELPERS ========================= */
 function uid(pre='id') { return pre + '-' + Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
 function nowFr() {
@@ -491,16 +559,38 @@ function renderAll() {
 function renderUsers() {
   const body = document.getElementById('users-body');
   const list = data.users.filter(u => u.role !== 'admin');
-  body.innerHTML = list.length ? list.map(u => `
+  body.innerHTML = list.length ? list.map(u => {
+    const opts = data.grades.map(g => `<option${g===u.grade?' selected':''}>${escapeHtml(g)}</option>`).join('');
+    return `
     <tr>
       <td class="td font-medium">${escapeHtml(u.name)}</td>
       <td class="td text-slate-500">${escapeHtml(u.login)}</td>
-      <td class="td"><span class="badge-role">${escapeHtml(u.grade || '—')}</span></td>
+      <td class="td">
+        <select class="input py-1 text-xs !bg-brand-50 !border-brand-200 !text-brand-700 font-semibold max-w-[180px]" onchange="updateUserGrade('${u.id}', this.value)">
+          ${opts}
+        </select>
+      </td>
       <td class="td">${u.hours.toFixed(2).replace('.', ',')}</td>
-      <td class="td text-right"><button class="icon-btn" title="Supprimer" onclick="deleteUser('${u.id}')">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
-      </button></td>
-    </tr>`).join('') : `<tr><td class="td text-slate-400" colspan="5">Aucun utilisateur.</td></tr>`;
+      <td class="td text-right">
+        <div class="flex justify-end gap-2">
+          <button class="btn btn-ghost text-xs" title="Modifier" onclick="openEditUserModal('${u.id}')">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            Modifier
+          </button>
+          <button class="icon-btn" title="Supprimer" onclick="deleteUser('${u.id}')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+          </button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('') : `<tr><td class="td text-slate-400" colspan="5">Aucun utilisateur.</td></tr>`;
+}
+
+function updateUserGrade(id, grade) {
+  const u = data.users.find(x => x.id === id); if (!u) return;
+  u.grade = grade; save();
+  renderHeures(); renderUserPage();
+  toast(`Grade de ${u.name} : ${grade}`, 'ok');
 }
 
 function renderGrades() {
@@ -563,12 +653,36 @@ function renderGradeSelects() {
 }
 
 /* ========================= USER CRUD ========================= */
+let _editingUserId = null;
 function openUserModal() {
+  _editingUserId = null;
   document.getElementById('user-form').reset();
   document.getElementById('nu-error').classList.add('hidden');
+  document.querySelector('#modal-user h3').textContent = "Ajouter un utilisateur";
+  document.querySelector('#modal-user button[type=submit]').textContent = "Créer l'utilisateur";
+  document.getElementById('nu-login').disabled = false;
+  document.getElementById('nu-pass').required = true;
+  document.querySelector('label[for=nu-pass-label]')?.remove();
+  document.getElementById('nu-pass').placeholder = '••••••••';
   renderGradeSelects();
   openModal('modal-user');
   setTimeout(() => document.getElementById('nu-name').focus(), 50);
+}
+function openEditUserModal(id) {
+  const u = data.users.find(x => x.id === id); if (!u) return;
+  _editingUserId = id;
+  renderGradeSelects();
+  document.getElementById('nu-name').value = u.name;
+  document.getElementById('nu-login').value = u.login;
+  document.getElementById('nu-login').disabled = true;
+  document.getElementById('nu-pass').value = '';
+  document.getElementById('nu-pass').required = false;
+  document.getElementById('nu-pass').placeholder = 'Laisser vide pour conserver';
+  document.getElementById('nu-grade').value = u.grade || data.grades[0];
+  document.getElementById('nu-error').classList.add('hidden');
+  document.querySelector('#modal-user h3').textContent = "Modifier l'utilisateur";
+  document.querySelector('#modal-user button[type=submit]').textContent = "Enregistrer";
+  openModal('modal-user');
 }
 function submitUser() {
   const name = document.getElementById('nu-name').value.trim();
@@ -576,6 +690,19 @@ function submitUser() {
   const pass = document.getElementById('nu-pass').value;
   const grade = document.getElementById('nu-grade').value;
   const err = document.getElementById('nu-error');
+
+  if (_editingUserId) {
+    const u = data.users.find(x => x.id === _editingUserId);
+    if (!u) { closeModal('modal-user'); return; }
+    if (!name) { err.textContent='Le nom est requis.'; err.classList.remove('hidden'); return; }
+    u.name = name;
+    u.grade = grade;
+    if (pass) u.password = pass;
+    save(); renderAll(); closeModal('modal-user');
+    toast('Utilisateur mis à jour', 'ok');
+    return;
+  }
+
   if (!name || !login || !pass) { err.textContent='Tous les champs sont requis.'; err.classList.remove('hidden'); return; }
   if (data.users.some(u => u.login.toLowerCase() === login.toLowerCase())) {
     err.textContent='Cet identifiant existe déjà.'; err.classList.remove('hidden'); return;
