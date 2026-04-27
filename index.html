@@ -187,13 +187,35 @@ function showSection(section) {
 }
 
 // ================= SERVICE =================
+async function loadTotalHours() {
+    try {
+        const doc = await db.collection("users").doc(currentUser.uid).get();
+        if (doc.exists) {
+            const hours = doc.data().heuresTotales || 0;
+            // On utilise ta fonction formatTime qui est déjà dans ton code
+            document.getElementById('totalHours').textContent = formatTime(hours);
+        }
+    } catch (e) {
+        console.error("Erreur heures:", e);
+    }
+}
 async function showService() {
     content.innerHTML = `
         <div class="card">
-            <h2>Service en cours</h2>
-            <p id="timer" style="font-size:28px; font-weight:bold; color:#27ae60;">⏱️ Hors service</p>
-            <button class="btn-success" onclick="startService()">▶️ Démarrer le service</button>
-            <button class="btn-danger" onclick="stopService()">⏹️ Arrêter le service</button>
+            <h2>Prise de Service</h2>
+            
+            <div style="text-align:center; margin:15px 0; background: #f8f9fa; padding: 15px; border-radius: 10px;">
+                <p style="margin:0; color:#7f8c8d; font-size: 14px;">Mes heures totales</p>
+                <h1 id="totalHours" style="font-size:40px; margin:5px 0; color:#2c3e50;">0h 00m</h1>
+            </div>
+
+            <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+
+            <p id="timer" style="font-size:28px; font-weight:bold; color:#27ae60; text-align:center;">⏱️ Hors service</p>
+            <div style="text-align:center;">
+                <button class="btn-success" onclick="startService()">▶️ Démarrer le service</button>
+                <button class="btn-danger" onclick="stopService()">⏹️ Arrêter le service</button>
+            </div>
         </div>
 
         <div class="card">
@@ -202,6 +224,7 @@ async function showService() {
         </div>
     `;
 
+    loadTotalHours(); // Charge le chiffre du haut
     loadColleagues();
     checkCurrentService();
 }
