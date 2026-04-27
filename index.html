@@ -1,869 +1,487 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Portail EMS — FiveM Roleplay</title>
-<script src="https://cdn.tailwindcss.com"></script>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<script>
-  tailwind.config = {
-    theme: {
-      extend: {
-        fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui'] },
-        colors: {
-          brand: {
-            50:'#eff9ff',100:'#def1ff',200:'#b6e4ff',300:'#75d0ff',400:'#2cb6ff',
-            500:'#089dff',600:'#007ddc',700:'#0064b2',800:'#065593',900:'#0b4878',
-          },
-        },
-      }
-    }
-  }
-</script>
+<meta charset="UTF-8">
+<title>EMS Central</title>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
 <style>
-  body { font-family:'Inter', sans-serif; background:#f3f5f8; color:#0f172a; }
-  .label { font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:#64748b; font-weight:600;}
-  .card { background:#fff; border:1px solid #e6e9ef; border-radius:14px; box-shadow:0 1px 2px rgba(16,24,40,.04),0 1px 3px rgba(16,24,40,.06); }
-  .input { width:100%; border:1px solid #e2e8f0; background:#f8fafc; border-radius:10px; padding:10px 12px; font-size:14px; outline:none; }
-  .input:focus { border-color:#7dd3fc; box-shadow:0 0 0 3px rgba(56,189,248,.2); background:#fff;}
-  .btn { display:inline-flex; align-items:center; gap:8px; border-radius:10px; padding:9px 14px; font-weight:600; font-size:13px; transition:.15s; cursor:pointer; border:0;}
-  .btn:disabled { opacity:.5; cursor:not-allowed;}
-  .btn-primary { background:#1ea7f0; color:#fff; }
-  .btn-primary:hover:not(:disabled) { background:#0f8fd6; }
-  .btn-success { background:#10b981; color:#fff; }
-  .btn-success:hover:not(:disabled) { background:#059669; }
-  .btn-danger { background:#ef4444; color:#fff; }
-  .btn-danger:hover:not(:disabled) { background:#dc2626; }
-  .btn-ghost { border:1px solid #e2e8f0; background:#fff; color:#0f172a;}
-  .btn-ghost:hover { background:#f8fafc;}
-  .badge-code { background:#1ea7f0; color:#fff; padding:3px 10px; border-radius:6px; font-weight:600; font-size:12px;}
-  .badge-role { background:#def1ff; color:#0064b2; padding:3px 10px; border-radius:6px; font-weight:600; font-size:12px;}
-  .sidebar-item { display:flex; align-items:center; gap:10px; padding:9px 12px; border-radius:10px; font-size:14px; color:#334155; cursor:pointer; user-select:none;}
-  .sidebar-item:hover { background:#f1f5f9;}
-  .sidebar-item.active { background:#eff6ff; color:#0b4878; font-weight:600;}
-  .th { text-align:left; font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:#64748b; font-weight:600; padding:12px 16px; border-bottom:1px solid #eef1f5;}
-  .td { padding:14px 16px; border-bottom:1px solid #f1f5f9; font-size:14px;}
-  .icon-btn { width:30px; height:30px; display:inline-flex; align-items:center; justify-content:center; border-radius:8px; border:1px solid #fecaca; color:#ef4444; background:#fff; cursor:pointer;}
-  .icon-btn:hover { background:#fef2f2;}
-  .tag-made { position:fixed; right:20px; bottom:20px; background:#0f172a; color:#fff; font-size:12px; padding:6px 12px; border-radius:999px; display:flex; align-items:center; gap:6px; z-index:40;}
-  .dot { width:6px; height:6px; border-radius:999px; background:#10b981;}
-  .page { display:none; } .page.active { display:block; }
-  .subpage { display:none; } .subpage.active { display:block; }
-  .hero {
-    background:
-      linear-gradient(180deg, rgba(3,15,38,.55), rgba(3,15,38,.75)),
-      url('https://images.unsplash.com/photo-1587745416684-47953f16f02f?auto=format&fit=crop&w=1400&q=80') center/cover;
-  }
-  select.input { appearance:none; background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 20 20' fill='%2394a3b8'><path d='M5.23 7.21a.75.75 0 011.06.02L10 11.06l3.71-3.83a.75.75 0 111.08 1.04l-4.25 4.39a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z'/></svg>"); background-repeat:no-repeat; background-position:right 10px center; padding-right:30px;}
-  /* Modal */
-  .modal-wrap { position:fixed; inset:0; background:rgba(15,23,42,.55); display:none; align-items:center; justify-content:center; z-index:50; padding:16px; }
-  .modal-wrap.active { display:flex; }
-  .modal { background:#fff; border-radius:16px; width:100%; max-width:440px; padding:24px; box-shadow:0 25px 50px rgba(0,0,0,.25);}
-  /* Toast */
-  .toast { position:fixed; top:20px; right:20px; background:#0f172a; color:#fff; padding:10px 16px; border-radius:10px; font-size:13px; z-index:60; opacity:0; transform:translateY(-10px); transition:.25s; }
-  .toast.show { opacity:1; transform:translateY(0); }
-  .toast.err { background:#dc2626; }
-  .toast.ok  { background:#10b981; }
-  .pulse { width:56px; height:56px; border-radius:999px; border:2px dashed #cbd5e1; display:flex; align-items:center; justify-content:center; color:#94a3b8; font-size:11px; margin:auto;}
-  .pulse.on { border-style:solid; border-color:#10b981; color:#065f46; animation:pulseRing 2s infinite; }
-  @keyframes pulseRing { 0%{box-shadow:0 0 0 0 rgba(16,185,129,.45)} 70%{box-shadow:0 0 0 14px rgba(16,185,129,0)} 100%{box-shadow:0 0 0 0 rgba(16,185,129,0)} }
+    body { 
+        margin: 0; 
+        font-family: Arial, sans-serif; 
+        display: flex; 
+        background: #f0f2f5;
+    }
+    .sidebar { 
+        width: 260px; 
+        background: #2c3e50; 
+        color: white; 
+        height: 100vh; 
+        padding: 20px; 
+        display: none;
+    }
+    .sidebar h2 { 
+        color: #00bfff; 
+        text-align: center;
+        margin-bottom: 30px;
+    }
+    .sidebar button { 
+        display: block; 
+        width: 100%; 
+        padding: 12px; 
+        margin: 8px 0; 
+        border: none; 
+        background: #34495e; 
+        color: white; 
+        text-align: left; 
+        cursor: pointer; 
+        border-radius: 6px;
+        font-size: 15px;
+    }
+    .sidebar button:hover { 
+        background: #00bfff; 
+    }
+    .main { 
+        flex: 1; 
+        padding: 25px; 
+        overflow-y: auto;
+    }
+    .card { 
+        background: white; 
+        padding: 25px; 
+        border-radius: 12px; 
+        box-shadow: 0 4px 10px rgba(0,0,0,0.1); 
+        margin-bottom: 25px;
+    }
+    button { 
+        padding: 10px 15px; 
+        margin: 5px; 
+        border: none; 
+        border-radius: 6px; 
+        cursor: pointer; 
+    }
+    .btn { background: #3498db; color: white; }
+    .btn-success { background: #27ae60; color: white; }
+    .btn-danger { background: #e74c3c; color: white; }
+    input { 
+        width: 100%; 
+        padding: 10px; 
+        margin: 8px 0; 
+        border: 1px solid #ddd; 
+        border-radius: 6px; 
+        box-sizing: border-box;
+    }
+    .service-item {
+        padding: 10px;
+        background: #f8f9fa;
+        margin: 5px 0;
+        border-radius: 6px;
+    }
 </style>
 </head>
-<body class="min-h-screen">
+<body>
 
-<!-- ============================= LOGIN PAGE ============================= -->
-<section id="page-login" class="page active">
-  <div class="min-h-screen grid md:grid-cols-2">
-    <div class="hero relative text-white p-10 flex flex-col justify-end min-h-[340px]">
-      <div class="absolute top-6 left-6 bg-white/10 backdrop-blur rounded-lg p-2">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M8 2v4M16 2v4M3 10h18"/></svg>
-      </div>
-      <div class="uppercase tracking-[.25em] text-xs text-white/70 mb-2">Médical d'urgence</div>
-      <h1 class="text-4xl md:text-5xl font-extrabold leading-tight">Portail EMS<br/>FiveM Roleplay</h1>
-      <p class="mt-3 text-white/80 max-w-sm">Gestion du personnel, formations et services d'urgence en temps réel.</p>
-    </div>
-    <div class="flex items-center justify-center p-8 bg-slate-50">
-      <div class="w-full max-w-sm">
-        <div class="label mb-2">Connexion</div>
-        <h2 class="text-2xl font-bold">Accès au service</h2>
-        <p class="text-sm text-slate-500 mt-1">Entrez vos identifiants pour prendre votre service.</p>
-        <form id="login-form" class="mt-8 space-y-4">
-          <div>
-            <div class="label mb-1">Identifiant</div>
-            <div class="relative">
-              <svg class="absolute left-3 top-2.5" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-              <input id="login-user" class="input pl-9" placeholder="Votre identifiant" autocomplete="username"/>
-            </div>
-          </div>
-          <div>
-            <div class="label mb-1">Mot de passe</div>
-            <div class="relative">
-              <svg class="absolute left-3 top-2.5" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-              <input id="login-pass" type="password" class="input pl-9" placeholder="••••••••" autocomplete="current-password"/>
-            </div>
-          </div>
-          <div id="login-error" class="text-sm text-red-600 hidden">Identifiants incorrects.</div>
-          <button class="btn btn-primary w-full justify-center py-3 text-sm" type="submit">Se connecter</button>
-          <p class="text-center text-xs text-slate-500 pt-2">Premier démarrage : admin / admin (pensez à le changer).</p>
-        </form>
-        <div class="text-center mt-6">
-          <button type="button" onclick="resetAllData()" class="text-xs text-slate-400 hover:text-red-600 underline">Réinitialiser les données</button>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ============================= ADMIN PAGE ============================= -->
-<section id="page-admin" class="page">
-  <div class="flex min-h-screen">
-    <aside class="w-64 bg-white border-r border-slate-200 flex flex-col">
-      <div class="p-4 flex items-center gap-3 border-b border-slate-200">
-        <div class="w-9 h-9 bg-brand-500 rounded-lg flex items-center justify-center text-white">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M2 12h20"/></svg>
-        </div>
-        <div><div class="font-bold text-sm">Portail EMS</div><div class="text-xs text-slate-500">Administration</div></div>
-      </div>
-      <nav class="p-3 space-y-1 flex-1">
-        <div class="sidebar-item active" data-tab="users" onclick="showAdmin('users', this)">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-          Utilisateurs
-        </div>
-        <div class="sidebar-item" data-tab="formations" onclick="showAdmin('formations', this)">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 10L12 5 2 10l10 5 10-5zM6 12v5c3 2 9 2 12 0v-5"/></svg>
-          Formations
-        </div>
-        <div class="sidebar-item" data-tab="heures" onclick="showAdmin('heures', this)">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-          Heures
-        </div>
-        <div class="sidebar-item" data-tab="grades" onclick="showAdmin('grades', this)">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="7"/><path d="M8.21 13.89L7 22l5-3 5 3-1.21-8.12"/></svg>
-          Grades
-        </div>
-        <div class="sidebar-item" data-tab="codes" onclick="showAdmin('codes', this)">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/></svg>
-          Codes Statut
-        </div>
-      </nav>
-      <div class="p-3 border-t border-slate-200 space-y-2">
-        <div class="label mb-1 px-1">Sauvegarde</div>
-        <button onclick="exportData()" class="btn btn-ghost w-full justify-center text-xs">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-          Exporter (.json)
-        </button>
-        <button onclick="document.getElementById('import-file').click()" class="btn btn-ghost w-full justify-center text-xs">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
-          Importer (.json)
-        </button>
-        <input type="file" id="import-file" accept="application/json,.json" class="hidden" onchange="importData(event)"/>
-      </div>
-      <div class="p-4 border-t border-slate-200">
-        <div class="text-xs text-slate-500">Connecté en tant que</div>
-        <div id="admin-who" class="font-semibold text-sm">Administrateur</div>
-        <button onclick="logout()" class="btn btn-ghost w-full justify-center mt-3 text-xs">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
-          Déconnexion
-        </button>
-      </div>
-    </aside>
-
-    <main class="flex-1 p-10">
-      <!-- Users -->
-      <div id="admin-users" class="subpage active">
-        <div class="label">Admin</div>
-        <div class="flex items-start justify-between mt-1">
-          <div><h1 class="text-2xl font-bold">Gestion des utilisateurs</h1><p class="text-sm text-slate-500 mt-1">Ajoutez, supprimez et gérez le personnel EMS.</p></div>
-          <button class="btn btn-primary" onclick="openUserModal()">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
-            Ajouter un utilisateur
-          </button>
-        </div>
-        <div class="card mt-8 overflow-hidden">
-          <table class="w-full">
-            <thead><tr><th class="th">Nom</th><th class="th">Identifiant</th><th class="th">Grade</th><th class="th">Heures</th><th class="th text-right">Actions</th></tr></thead>
-            <tbody id="users-body"></tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- Formations -->
-      <div id="admin-formations" class="subpage">
-        <div class="label">Admin</div>
-        <h1 class="text-2xl font-bold mt-1">Formations</h1>
-        <p class="text-sm text-slate-500 mt-1">Créez des formations et attribuez-les aux utilisateurs.</p>
-        <div class="grid md:grid-cols-2 gap-6 mt-8">
-          <div class="card p-6">
-            <div class="label mb-3">Créer une formation</div>
-            <label class="text-sm font-medium">Titre</label>
-            <input id="f-title" class="input mt-1" placeholder="Ex: Réanimation"/>
-            <label class="text-sm font-medium mt-4 block">Description</label>
-            <textarea id="f-desc" class="input mt-1 h-24"></textarea>
-            <button class="btn btn-primary mt-4" onclick="createFormation()">Créer</button>
-          </div>
-          <div class="card p-6">
-            <div class="label mb-3">Attribuer une formation</div>
-            <label class="text-sm font-medium">Utilisateur</label>
-            <select id="f-assign-user" class="input mt-1"></select>
-            <label class="text-sm font-medium mt-4 block">Formation</label>
-            <select id="f-assign-form" class="input mt-1"></select>
-            <button class="btn btn-primary mt-4" onclick="assignFormation()">Attribuer</button>
-          </div>
-        </div>
-        <div class="card mt-8 overflow-hidden">
-          <table class="w-full">
-            <thead><tr><th class="th">Titre</th><th class="th">Description</th><th class="th">Attribué à</th><th class="th text-right">Actions</th></tr></thead>
-            <tbody id="formations-body"></tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- Heures -->
-      <div id="admin-heures" class="subpage">
-        <div class="label">Admin</div>
-        <h1 class="text-2xl font-bold mt-1">Gestion des heures</h1>
-        <p class="text-sm text-slate-500 mt-1">Consultez et ajustez manuellement les heures des utilisateurs.</p>
-        <div class="card mt-8 overflow-hidden">
-          <table class="w-full">
-            <thead><tr><th class="th">Nom</th><th class="th">Grade</th><th class="th">Heures</th><th class="th"></th><th class="th text-right">Actions</th></tr></thead>
-            <tbody id="heures-body"></tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- Grades -->
-      <div id="admin-grades" class="subpage">
-        <div class="label">Admin</div>
-        <h1 class="text-2xl font-bold mt-1">Grades</h1>
-        <p class="text-sm text-slate-500 mt-1">Gérez les grades attribuables au personnel.</p>
-        <form class="card mt-6 p-3 flex gap-3 items-center" onsubmit="event.preventDefault(); addGrade();">
-          <input id="grade-input" class="input" placeholder="Ex: Lieutenant"/>
-          <button class="btn btn-primary whitespace-nowrap" type="submit">+ Ajouter</button>
-        </form>
-        <div class="card mt-6 overflow-hidden">
-          <table class="w-full">
-            <thead><tr><th class="th">Nom</th><th class="th text-right">Actions</th></tr></thead>
-            <tbody id="grades-body"></tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- Codes -->
-      <div id="admin-codes" class="subpage">
-        <div class="label">Admin</div>
-        <h1 class="text-2xl font-bold mt-1">Codes de statut</h1>
-        <p class="text-sm text-slate-500 mt-1">Définissez les codes disponibles pour le personnel.</p>
-        <form class="card mt-6 p-3 flex gap-3 items-center" onsubmit="event.preventDefault(); addCode();">
-          <input id="code-input" class="input" placeholder="Ex: Code 6"/>
-          <button class="btn btn-primary whitespace-nowrap" type="submit">+ Ajouter</button>
-        </form>
-        <div class="card mt-6 overflow-hidden">
-          <table class="w-full">
-            <thead><tr><th class="th">Code</th><th class="th text-right">Actions</th></tr></thead>
-            <tbody id="codes-body"></tbody>
-          </table>
-        </div>
-      </div>
-    </main>
-  </div>
-</section>
-
-<!-- ============================= USER PAGE ============================= -->
-<section id="page-user" class="page">
-  <div class="min-h-screen">
-    <header class="bg-white border-b border-slate-200">
-      <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-        <div class="flex items-center gap-3">
-          <div class="w-9 h-9 bg-brand-500 rounded-lg flex items-center justify-center text-white">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M2 12h20"/></svg>
-          </div>
-          <div><div class="font-bold text-sm">Portail EMS</div><div class="text-xs text-slate-500" id="user-header-sub">—</div></div>
-        </div>
-        <button onclick="logout()" class="btn btn-ghost">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
-          Déconnexion
-        </button>
-      </div>
-    </header>
-
-    <main class="max-w-6xl mx-auto px-6 py-8 space-y-6">
-      <div class="grid md:grid-cols-3 gap-6">
-        <div class="card p-6">
-          <div class="label">Service</div>
-          <h2 id="svc-title" class="text-xl font-bold mt-1">Hors service</h2>
-          <p id="svc-sub" class="text-sm text-slate-500">Prêt à prendre le service.</p>
-          <div class="my-6 flex justify-center">
-            <div id="svc-pulse" class="pulse">AUCHEMIN</div>
-          </div>
-          <button id="svc-btn" class="btn btn-success w-full justify-center py-3" onclick="toggleService()">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
-            <span id="svc-btn-label">Prendre service</span>
-          </button>
-        </div>
-
-        <div class="card p-6 md:col-span-2">
-          <div class="flex items-start justify-between">
-            <div><div class="label">Statut</div><h2 class="text-xl font-bold mt-1">Mise à jour du statut</h2></div>
-            <button class="btn btn-ghost text-xs" onclick="quickAddCode()">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
-              Ajouter un code
-            </button>
-          </div>
-          <div class="grid md:grid-cols-2 gap-4 mt-5">
-            <div><div class="label mb-1">Code</div><select id="u-code" class="input"></select></div>
-            <div><div class="label mb-1">Lieu</div><input id="u-lieu" class="input" placeholder="Ex: Pillbox Hospital"/></div>
-          </div>
-          <div class="mt-4"><div class="label mb-1">Commentaire</div><textarea id="u-comment" class="input h-20" placeholder="Détails supplémentaires…"></textarea></div>
-          <button id="u-update" class="btn btn-primary mt-4" onclick="updateStatus()">Mettre à jour le statut</button>
-        </div>
-      </div>
-
-      <div class="grid md:grid-cols-3 gap-6">
-        <div class="card p-6">
-          <div class="label">Heures totales</div>
-          <div id="u-hours" class="text-3xl font-extrabold mt-3">0.00</div>
-          <div class="text-sm text-slate-500">heures cumulées</div>
-        </div>
-        <div class="card p-6">
-          <div class="label">Grade</div>
-          <div id="u-grade" class="text-xl font-bold mt-3">—</div>
-          <div id="u-name" class="text-sm text-slate-500">—</div>
-        </div>
-        <div class="card p-6">
-          <div class="label">Formations</div>
-          <div id="u-formations" class="mt-3 flex flex-wrap gap-2"><span class="text-sm text-slate-400">Aucune</span></div>
-        </div>
-      </div>
-
-      <div class="card p-6">
-        <div class="label mb-4">Historique des statuts</div>
-        <div id="u-history" class="divide-y divide-slate-100"><div class="py-3 text-sm text-slate-400">Aucun historique.</div></div>
-      </div>
-    </main>
-  </div>
-</section>
-
-<!-- ============================= MODALS ============================= -->
-<div id="modal-user" class="modal-wrap" onclick="if(event.target===this) closeModal('modal-user')">
-  <div class="modal">
-    <div class="flex items-start justify-between">
-      <div><div class="label">Personnel</div><h3 class="text-lg font-bold">Ajouter un utilisateur</h3></div>
-      <button class="btn-ghost btn" onclick="closeModal('modal-user')">✕</button>
-    </div>
-    <form id="user-form" class="mt-5 space-y-4" onsubmit="event.preventDefault(); submitUser();">
-      <div>
-        <label class="text-sm font-medium">Nom complet</label>
-        <input id="nu-name" class="input mt-1" placeholder="Ex: Jean Dupont" required/>
-      </div>
-      <div class="grid grid-cols-2 gap-3">
-        <div>
-          <label class="text-sm font-medium">Identifiant</label>
-          <input id="nu-login" class="input mt-1" placeholder="jdupont" required/>
-        </div>
-        <div>
-          <label class="text-sm font-medium">Mot de passe</label>
-          <input id="nu-pass" type="password" class="input mt-1" placeholder="••••••••" required minlength="3"/>
-        </div>
-      </div>
-      <div>
-        <label class="text-sm font-medium">Grade</label>
-        <select id="nu-grade" class="input mt-1"></select>
-      </div>
-      <div id="nu-error" class="text-sm text-red-600 hidden"></div>
-      <div class="flex gap-2 justify-end pt-2">
-        <button type="button" class="btn btn-ghost" onclick="closeModal('modal-user')">Annuler</button>
-        <button type="submit" class="btn btn-primary">Créer l'utilisateur</button>
-      </div>
-    </form>
-  </div>
+<div class="sidebar" id="sidebar">
+    <h2>🚑 EMS Central</h2>
+    <button onclick="showSection('service')">🛠️ Service</button>
+    <button onclick="showSection('profile')">👤 Profil</button>
+    <button onclick="showSection('users')" id="btnUsers">👥 Utilisateurs</button>
+    <button onclick="showSection('admin')" id="btnAdmin">⚙️ Codes & Lieux</button>
+    <button onclick="logout()">🚪 Déconnexion</button>
 </div>
 
-<div id="modal-heures" class="modal-wrap" onclick="if(event.target===this) closeModal('modal-heures')">
-  <div class="modal">
-    <div class="flex items-start justify-between">
-      <div><div class="label">Heures</div><h3 class="text-lg font-bold">Éditer les heures</h3></div>
-      <button class="btn btn-ghost" onclick="closeModal('modal-heures')">✕</button>
-    </div>
-    <form class="mt-5 space-y-4" onsubmit="event.preventDefault(); submitHeures();">
-      <div><label class="text-sm font-medium">Utilisateur</label><div id="eh-name" class="input mt-1 bg-slate-100">—</div></div>
-      <div><label class="text-sm font-medium">Heures cumulées</label><input id="eh-hours" type="number" step="0.01" min="0" class="input mt-1" required/></div>
-      <div class="flex gap-2 justify-end pt-2">
-        <button type="button" class="btn btn-ghost" onclick="closeModal('modal-heures')">Annuler</button>
-        <button type="submit" class="btn btn-primary">Enregistrer</button>
-      </div>
-    </form>
-  </div>
+<div class="main">
+    <div id="content"></div>
 </div>
-
-<div class="tag-made"><span class="dot"></span> Made with Emergent</div>
-<div id="toast" class="toast"></div>
 
 <script>
-/* ========================= DATA / STORE ========================= */
-const STORAGE_KEY = 'portailEmsData_v1';
+// ================= CONFIG FIREBASE =================
+const firebaseConfig = {
+    apiKey: "AIzaSyB_tI4S6Z3sBGuV_qrk1ILbvMxtDEfXzqU",
+    authDomain: "ems-central-rp.firebaseapp.com",
+    projectId: "ems-central-rp",
+    storageBucket: "ems-central-rp.firebasestorage.app",
+    messagingSenderId: "669746576227",
+    appId: "1:669746576227:web:ba18eb315db88e49a3b156"
+};
 
-const defaultData = () => ({
-  users: [
-    // admin has its own special account (not listed in table by default)
-    { id: 'u-admin', name: 'Administrateur', login: 'admin', password: 'admin', grade: '—', hours: 0, formations: [], role: 'admin' },
-    { id: 'u-1', name: 'smart moussa', login: 'smart', password: 'smart', grade: 'Secouriste', hours: 5, formations: ['FA'], role: 'user' },
-  ],
-  grades: ['Étudiant','Aide-Soignant','Infirmier','Infirmier en Chef','Externe','Interne','Résident','Doctorant','Médecin','Secouriste'],
-  codes: ['Code 3','Code 6','Code 1'],
-  formations: [
-    { id:'f-1', title:'TEST Training Iraak', description:'d', assignedTo: null },
-    { id:'f-2', title:'Formation_1796870664', description:'', assignedTo: null },
-    { id:'f-3', title:'FA', description:'Formation ambulance (code 3)', assignedTo:'u-1' },
-  ],
-  history: [
-    { code:'Code 3', user:'sandy', at: '22/04/2025 19:16:44' },
-    { code:'Code 6', user:'sandy', at: '22/04/2025 19:16:01' },
-  ],
-  session: null, // { userId, onDuty:false, onDutySince:null }
-});
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
 
-let data;
-function load() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    data = raw ? JSON.parse(raw) : defaultData();
-  } catch { data = defaultData(); }
-}
-function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
-function resetAllData() {
-  if (!confirm('Réinitialiser toutes les données (utilisateurs, grades, codes, formations) ?')) return;
-  data = defaultData(); save(); toast('Données réinitialisées', 'ok'); renderAll();
-}
+let currentUser = null;
+let isAdmin = false;
+let timerInterval = null;
 
-/* Export the current data as a downloadable JSON file. Admin only. */
-function exportData() {
-  const u = currentUser();
-  if (!u || u.role !== 'admin') { toast("Accès réservé à l'administrateur", 'err'); return; }
-  const payload = JSON.stringify({ exportedAt: new Date().toISOString(), version: 1, data }, null, 2);
-  const blob = new Blob([payload], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  const d = new Date(), pad = n => String(n).padStart(2,'0');
-  a.href = url;
-  a.download = `portail-ems-sauvegarde-${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}.json`;
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-  toast('Sauvegarde exportée', 'ok');
-}
+// ================= ÉLÉMENTS DOM =================
+const sidebar = document.getElementById('sidebar');
+const content = document.getElementById('content');
 
-/* Import data from a JSON file selected by the user. Admin only. */
-function importData(event) {
-  const u = currentUser();
-  if (!u || u.role !== 'admin') { toast("Accès réservé à l'administrateur", 'err'); event.target.value=''; return; }
-  const file = event.target.files?.[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = () => {
-    try {
-      const parsed = JSON.parse(reader.result);
-      const payload = parsed?.data ?? parsed;
-      if (!payload || !Array.isArray(payload.users) || !Array.isArray(payload.grades)
-          || !Array.isArray(payload.codes) || !Array.isArray(payload.formations)) {
-        toast('Fichier invalide', 'err'); return;
-      }
-      if (!confirm('Importer ce fichier va remplacer toutes les données actuelles. Continuer ?')) return;
-      data = {
-        users: payload.users,
-        grades: payload.grades,
-        codes: payload.codes,
-        formations: payload.formations,
-        history: Array.isArray(payload.history) ? payload.history : [],
-        session: null,
-      };
-      // Ensure admin account still exists so admin can reconnect
-      if (!data.users.some(x => x.role === 'admin')) {
-        data.users.unshift({ id:'u-admin', name:'Administrateur', login:'admin', password:'admin', grade:'—', hours:0, formations:[], role:'admin' });
-      }
-      save();
-      toast('Import terminé', 'ok');
-      logout();
-    } catch (e) {
-      toast('Fichier JSON illisible', 'err');
-    } finally {
-      event.target.value = '';
+// ================= AUTH =================
+auth.onAuthStateChanged(async (user) => {
+    if (user) {
+        currentUser = user;
+        const userDoc = await db.collection("users").doc(user.uid).get();
+        const userData = userDoc.data() || {};
+        
+        isAdmin = userData.role === "admin";
+        
+        // Afficher/masquer les boutons admin
+        document.getElementById('btnUsers').style.display = isAdmin ? 'block' : 'none';
+        document.getElementById('btnAdmin').style.display = isAdmin ? 'block' : 'none';
+
+        sidebar.style.display = "block";
+        showSection('service');
+    } else {
+        sidebar.style.display = "none";
+        showLogin();
     }
-  };
-  reader.readAsText(file);
-}
-
-/* ========================= HELPERS ========================= */
-function uid(pre='id') { return pre + '-' + Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
-function nowFr() {
-  const d = new Date(), pad = n=>String(n).padStart(2,'0');
-  return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-}
-function toast(msg, kind='') {
-  const t = document.getElementById('toast');
-  t.textContent = msg; t.className = 'toast show ' + kind;
-  clearTimeout(window._t); window._t = setTimeout(()=>t.className='toast '+kind, 2200);
-}
-function openModal(id){ document.getElementById(id).classList.add('active'); }
-function closeModal(id){ document.getElementById(id).classList.remove('active'); }
-function currentUser() { return data.users.find(u => u.id === data.session?.userId) || null; }
-
-/* ========================= PAGE ROUTING ========================= */
-function showPage(id) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.getElementById('page-' + id).classList.add('active');
-  window.scrollTo(0,0);
-}
-function showAdmin(id, el) {
-  document.querySelectorAll('.subpage').forEach(p => p.classList.remove('active'));
-  document.getElementById('admin-' + id).classList.add('active');
-  document.querySelectorAll('.sidebar-item').forEach(i => i.classList.remove('active'));
-  if (el) el.classList.add('active');
-  else document.querySelector(`.sidebar-item[data-tab="${id}"]`)?.classList.add('active');
-}
-
-/* ========================= LOGIN / LOGOUT ========================= */
-document.addEventListener('DOMContentLoaded', () => {
-  load(); renderAll();
-  document.getElementById('login-form').addEventListener('submit', e => {
-    e.preventDefault();
-    const u = document.getElementById('login-user').value.trim();
-    const p = document.getElementById('login-pass').value;
-    const user = data.users.find(x => x.login === u && x.password === p);
-    const err = document.getElementById('login-error');
-    if (!user) { err.classList.remove('hidden'); return; }
-    err.classList.add('hidden');
-    data.session = { userId: user.id, onDuty: false, onDutySince: null };
-    save();
-    if (user.role === 'admin') { showPage('admin'); document.getElementById('admin-who').textContent = user.name; }
-    else { showPage('user'); renderUserPage(); }
-    toast('Bienvenue, ' + user.name, 'ok');
-  });
 });
+
+// ================= LOGIN =================
+function showLogin() {
+    content.innerHTML = `
+        <div class="card" style="max-width:420px; margin: 100px auto;">
+            <h2 style="text-align:center;">Connexion EMS Central</h2>
+            <input type="email" id="email" placeholder="Email" required>
+            <input type="password" id="pass" placeholder="Mot de passe" required>
+            <button class="btn" style="width:100%; padding:12px;" onclick="login()">Se connecter</button>
+        </div>
+    `;
+}
+
+async function login() {
+    const email = document.getElementById('email').value.trim();
+    const pass = document.getElementById('pass').value;
+
+    if (!email || !pass) {
+        alert("Veuillez remplir tous les champs");
+        return;
+    }
+
+    try {
+        await auth.signInWithEmailAndPassword(email, pass);
+    } catch (e) {
+        alert("Erreur de connexion : " + e.message);
+    }
+}
 
 function logout() {
-  // If user was on duty, stop and accumulate
-  const u = currentUser();
-  if (u && data.session?.onDuty) stopDuty();
-  data.session = null; save();
-  document.getElementById('login-pass').value = '';
-  showPage('login');
+    if (confirm("Voulez-vous vraiment vous déconnecter ?")) {
+        auth.signOut();
+    }
 }
 
-/* ========================= RENDERERS ========================= */
-function renderAll() {
-  renderUsers(); renderGrades(); renderCodes(); renderFormations(); renderHeures();
-  renderGradeSelects();
-  renderUserPage();
+// ================= NAVIGATION =================
+function showSection(section) {
+    if (timerInterval) clearInterval(timerInterval);
+
+    switch(section) {
+        case 'service': showService(); break;
+        case 'profile': showProfile(); break;
+        case 'users': if(isAdmin) showUsers(); else alert("Accès réservé aux administrateurs"); break;
+        case 'admin': if(isAdmin) showAdmin(); else alert("Accès réservé aux administrateurs"); break;
+    }
 }
 
-function renderUsers() {
-  const body = document.getElementById('users-body');
-  const list = data.users.filter(u => u.role !== 'admin');
-  body.innerHTML = list.length ? list.map(u => {
-    const opts = data.grades.map(g => `<option${g===u.grade?' selected':''}>${escapeHtml(g)}</option>`).join('');
-    return `
-    <tr>
-      <td class="td font-medium">${escapeHtml(u.name)}</td>
-      <td class="td text-slate-500">${escapeHtml(u.login)}</td>
-      <td class="td">
-        <select class="input py-1 text-xs !bg-brand-50 !border-brand-200 !text-brand-700 font-semibold max-w-[180px]" onchange="updateUserGrade('${u.id}', this.value)">
-          ${opts}
-        </select>
-      </td>
-      <td class="td">${u.hours.toFixed(2).replace('.', ',')}</td>
-      <td class="td text-right">
-        <div class="flex justify-end gap-2">
-          <button class="btn btn-ghost text-xs" title="Modifier" onclick="openEditUserModal('${u.id}')">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-            Modifier
-          </button>
-          <button class="icon-btn" title="Supprimer" onclick="deleteUser('${u.id}')">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
-          </button>
+// ================= SERVICE =================
+async function showService() {
+    content.innerHTML = `
+        <div class="card">
+            <h2>Service en cours</h2>
+            <p id="timer" style="font-size:28px; font-weight:bold; color:#27ae60;">⏱️ Hors service</p>
+            <button class="btn-success" onclick="startService()">▶️ Démarrer le service</button>
+            <button class="btn-danger" onclick="stopService()">⏹️ Arrêter le service</button>
         </div>
-      </td>
-    </tr>`;
-  }).join('') : `<tr><td class="td text-slate-400" colspan="5">Aucun utilisateur.</td></tr>`;
+
+        <div class="card">
+            <h3>Collègues en service</h3>
+            <div id="colleaguesList"></div>
+        </div>
+    `;
+
+    loadColleagues();
+    checkCurrentService();
 }
 
-function updateUserGrade(id, grade) {
-  const u = data.users.find(x => x.id === id); if (!u) return;
-  u.grade = grade; save();
-  renderHeures(); renderUserPage();
-  toast(`Grade de ${u.name} : ${grade}`, 'ok');
+async function startService() {
+    try {
+        await db.collection("service").doc(currentUser.uid).set({
+            start: Date.now(),
+            userId: currentUser.uid
+        });
+        checkCurrentService();
+    } catch (e) {
+        alert("Erreur : " + e.message);
+    }
 }
 
-function renderGrades() {
-  const body = document.getElementById('grades-body');
-  body.innerHTML = data.grades.length ? data.grades.map(g => `
-    <tr><td class="td">${escapeHtml(g)}</td>
-        <td class="td text-right"><button class="icon-btn" onclick="deleteGrade('${escapeAttr(g)}')">🗑</button></td></tr>
-  `).join('') : `<tr><td class="td text-slate-400" colspan="2">Aucun grade.</td></tr>`;
+async function stopService() {
+    if (timerInterval) clearInterval(timerInterval);
+
+    const serviceRef = db.collection("service").doc(currentUser.uid);
+    const doc = await serviceRef.get();
+
+    if (!doc.exists) {
+        alert("Vous n'êtes pas en service !");
+        return;
+    }
+
+    const startTime = doc.data().start;
+    const durationHours = (Date.now() - startTime) / 3600000;
+
+    // Ajouter les heures au total
+    const userRef = db.collection("users").doc(currentUser.uid);
+    const userDoc = await userRef.get();
+    const currentHours = userDoc.data()?.heuresTotales || 0;
+
+    await userRef.update({
+        heuresTotales: currentHours + durationHours
+    });
+
+    await serviceRef.delete();
+
+    alert(`Service terminé !\nDurée : ${durationHours.toFixed(2)} heures ajoutées.`);
+    showService();
 }
 
-function renderCodes() {
-  const body = document.getElementById('codes-body');
-  body.innerHTML = data.codes.length ? data.codes.map(c => `
-    <tr><td class="td"><span class="badge-code">${escapeHtml(c)}</span></td>
-        <td class="td text-right"><button class="icon-btn" onclick="deleteCode('${escapeAttr(c)}')">🗑</button></td></tr>
-  `).join('') : `<tr><td class="td text-slate-400" colspan="2">Aucun code.</td></tr>`;
+async function checkCurrentService() {
+    const doc = await db.collection("service").doc(currentUser.uid).get();
+    
+    const timerEl = document.getElementById('timer');
+    
+    if (!doc.exists) {
+        timerEl.innerHTML = `⏱️ Hors service`;
+        timerEl.style.color = "#7f8c8d";
+        return;
+    }
 
-  // Update user status code select
-  const sel = document.getElementById('u-code');
-  if (sel) sel.innerHTML = `<option value="">Service requis</option>` + data.codes.map(c => `<option>${escapeHtml(c)}</option>`).join('');
-}
+    const start = doc.data().start;
 
-function renderFormations() {
-  const body = document.getElementById('formations-body');
-  body.innerHTML = data.formations.length ? data.formations.map(f => {
-    const assignee = f.assignedTo ? data.users.find(u => u.id === f.assignedTo) : null;
-    return `<tr>
-      <td class="td font-medium">${escapeHtml(f.title)}</td>
-      <td class="td text-slate-500">${f.description ? escapeHtml(f.description) : '<span class="text-slate-400">—</span>'}</td>
-      <td class="td">${assignee ? `<span class="text-brand-600 font-semibold">${escapeHtml(assignee.name)}</span>` : '<span class="text-slate-400">—</span>'}</td>
-      <td class="td text-right"><button class="icon-btn" onclick="deleteFormation('${f.id}')">🗑</button></td>
-    </tr>`;
-  }).join('') : `<tr><td class="td text-slate-400" colspan="4">Aucune formation.</td></tr>`;
+    if (timerInterval) clearInterval(timerInterval);
 
-  // Populate attribute selects
-  const userSel = document.getElementById('f-assign-user');
-  const formSel = document.getElementById('f-assign-form');
-  if (userSel) userSel.innerHTML = `<option value="">Choisir…</option>` + data.users.filter(u=>u.role!=='admin').map(u=>`<option value="${u.id}">${escapeHtml(u.name)}</option>`).join('');
-  if (formSel) formSel.innerHTML = `<option value="">Choisir…</option>` + data.formations.map(f=>`<option value="${f.id}">${escapeHtml(f.title)}</option>`).join('');
+    timerInterval = setInterval(() => {
+        const diff = Date.now() - start;
+        const h = Math.floor(diff / 3600000);
+        const m = Math.floor((diff % 3600000) / 60000);
+        const s = Math.floor((diff % 60000) / 1000);
+
+        timerEl.innerHTML = `⏱️ ${h}h ${m.toString().padStart(2,'0')}m ${s.toString().padStart(2,'0')}s`;
+        timerEl.style.color = "#27ae60";
+    }, 1000);
 }
 
-function renderHeures() {
-  const body = document.getElementById('heures-body');
-  const list = data.users.filter(u => u.role !== 'admin');
-  const max = Math.max(1, ...list.map(u => u.hours));
-  body.innerHTML = list.length ? list.map(u => `
-    <tr>
-      <td class="td font-medium">${escapeHtml(u.name)}</td>
-      <td class="td"><span class="badge-role">${escapeHtml(u.grade || '—')}</span></td>
-      <td class="td">${u.hours.toFixed(2).replace('.', ',')} h</td>
-      <td class="td"><div class="h-1.5 w-40 bg-slate-100 rounded"><div class="h-1.5 bg-emerald-400 rounded" style="width:${Math.round((u.hours/max)*100)}%"></div></div></td>
-      <td class="td text-right"><button class="btn btn-ghost text-xs" onclick="openHeuresModal('${u.id}')">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>Éditer</button></td>
-    </tr>`).join('') : `<tr><td class="td text-slate-400" colspan="5">Aucun utilisateur.</td></tr>`;
+// ================= COLLÈGUES EN SERVICE =================
+async function loadColleagues() {
+    const snap = await db.collection("service").get();
+    const listEl = document.getElementById('colleaguesList');
+
+    if (snap.empty) {
+        listEl.innerHTML = "<p>Aucun collègue en service actuellement.</p>";
+        return;
+    }
+
+    let html = "";
+    for (const doc of snap.docs) {
+        const userSnap = await db.collection("users").doc(doc.id).get();
+        const user = userSnap.data() || {};
+        html += `<div class="service-item">🟢 ${user.nom || "Inconnu"} - ${user.grade || ""}</div>`;
+    }
+    listEl.innerHTML = html;
 }
 
-function renderGradeSelects() {
-  const sel = document.getElementById('nu-grade');
-  if (sel) sel.innerHTML = data.grades.map(g => `<option>${escapeHtml(g)}</option>`).join('');
+// ================= PROFIL =================
+async function showProfile() {
+    const doc = await db.collection("users").doc(currentUser.uid).get();
+    const d = doc.data() || {};
+
+    content.innerHTML = `
+        <div class="card">
+            <h2>Mon Profil</h2>
+            <p><strong>Nom :</strong> ${d.nom || "Non défini"}</p>
+            <p><strong>Grade :</strong> ${d.grade || "Aucun"}</p>
+            <p><strong>Heures totales :</strong> ${formatTime(d.heuresTotales || 0)}</p>
+            <p><strong>Email :</strong> ${currentUser.email}</p>
+        </div>
+    `;
 }
 
-/* ========================= USER CRUD ========================= */
-let _editingUserId = null;
-function openUserModal() {
-  _editingUserId = null;
-  document.getElementById('user-form').reset();
-  document.getElementById('nu-error').classList.add('hidden');
-  document.querySelector('#modal-user h3').textContent = "Ajouter un utilisateur";
-  document.querySelector('#modal-user button[type=submit]').textContent = "Créer l'utilisateur";
-  document.getElementById('nu-login').disabled = false;
-  document.getElementById('nu-pass').required = true;
-  document.querySelector('label[for=nu-pass-label]')?.remove();
-  document.getElementById('nu-pass').placeholder = '••••••••';
-  renderGradeSelects();
-  openModal('modal-user');
-  setTimeout(() => document.getElementById('nu-name').focus(), 50);
-}
-function openEditUserModal(id) {
-  const u = data.users.find(x => x.id === id); if (!u) return;
-  _editingUserId = id;
-  renderGradeSelects();
-  document.getElementById('nu-name').value = u.name;
-  document.getElementById('nu-login').value = u.login;
-  document.getElementById('nu-login').disabled = true;
-  document.getElementById('nu-pass').value = '';
-  document.getElementById('nu-pass').required = false;
-  document.getElementById('nu-pass').placeholder = 'Laisser vide pour conserver';
-  document.getElementById('nu-grade').value = u.grade || data.grades[0];
-  document.getElementById('nu-error').classList.add('hidden');
-  document.querySelector('#modal-user h3').textContent = "Modifier l'utilisateur";
-  document.querySelector('#modal-user button[type=submit]').textContent = "Enregistrer";
-  openModal('modal-user');
-}
-function submitUser() {
-  const name = document.getElementById('nu-name').value.trim();
-  const login = document.getElementById('nu-login').value.trim();
-  const pass = document.getElementById('nu-pass').value;
-  const grade = document.getElementById('nu-grade').value;
-  const err = document.getElementById('nu-error');
-
-  if (_editingUserId) {
-    const u = data.users.find(x => x.id === _editingUserId);
-    if (!u) { closeModal('modal-user'); return; }
-    if (!name) { err.textContent='Le nom est requis.'; err.classList.remove('hidden'); return; }
-    u.name = name;
-    u.grade = grade;
-    if (pass) u.password = pass;
-    save(); renderAll(); closeModal('modal-user');
-    toast('Utilisateur mis à jour', 'ok');
-    return;
-  }
-
-  if (!name || !login || !pass) { err.textContent='Tous les champs sont requis.'; err.classList.remove('hidden'); return; }
-  if (data.users.some(u => u.login.toLowerCase() === login.toLowerCase())) {
-    err.textContent='Cet identifiant existe déjà.'; err.classList.remove('hidden'); return;
-  }
-  data.users.push({ id: uid('u'), name, login, password: pass, grade, hours: 0, formations: [], role:'user' });
-  save(); renderAll(); closeModal('modal-user');
-  toast('Utilisateur créé — il peut maintenant se connecter', 'ok');
-}
-function deleteUser(id) {
-  const u = data.users.find(x => x.id === id); if (!u) return;
-  if (!confirm(`Supprimer l'utilisateur "${u.name}" ?`)) return;
-  data.users = data.users.filter(x => x.id !== id);
-  data.formations.forEach(f => { if (f.assignedTo === id) f.assignedTo = null; });
-  save(); renderAll(); toast('Utilisateur supprimé');
+function formatTime(hours) {
+    if (!hours) return "0h 0m";
+    const h = Math.floor(hours);
+    const m = Math.floor((hours - h) * 60);
+    return `${h}h ${m}m`;
 }
 
-/* ========================= GRADES ========================= */
-function addGrade() {
-  const inp = document.getElementById('grade-input');
-  const v = inp.value.trim(); if (!v) return;
-  if (data.grades.includes(v)) { toast('Ce grade existe déjà', 'err'); return; }
-  data.grades.push(v); save(); inp.value=''; renderGrades(); renderGradeSelects(); toast('Grade ajouté', 'ok');
-}
-function deleteGrade(g) {
-  if (!confirm(`Supprimer le grade "${g}" ?`)) return;
-  data.grades = data.grades.filter(x => x !== g);
-  save(); renderGrades(); renderGradeSelects(); toast('Grade supprimé');
+// ================= UTILISATEURS (ADMIN) =================
+async function showUsers() {
+    if (!isAdmin) return;
+
+    const snap = await db.collection("users").get();
+    let html = `
+        <div class="card">
+            <h2>Gestion des Utilisateurs</h2>
+            <h3>Créer un nouvel utilisateur</h3>
+            <input id="newEmail" placeholder="Email" type="email">
+            <input id="newPass" placeholder="Mot de passe" type="password">
+            <input id="newNom" placeholder="Nom complet">
+            <input id="newGrade" placeholder="Grade (ex: Médecin, Infirmier...)">
+            <button class="btn" onclick="createUser()">Créer l'utilisateur</button>
+        </div>
+    `;
+
+    snap.forEach(doc => {
+        const u = doc.data();
+        html += `
+            <div class="card">
+                <strong>${u.nom || "Sans nom"}</strong> (${u.email || ""}) - ${u.grade || ""}
+                <br><br>
+                <input id="nom_${doc.id}" value="${u.nom || ''}" placeholder="Nom">
+                <button onclick="updateField('${doc.id}', 'nom')">Modifier Nom</button>
+
+                <input id="grade_${doc.id}" value="${u.grade || ''}" placeholder="Grade">
+                <button onclick="updateField('${doc.id}', 'grade')">Modifier Grade</button>
+
+                <input id="heure_${doc.id}" value="${u.heuresTotales || 0}" type="number" step="0.01">
+                <button onclick="updateField('${doc.id}', 'heuresTotales')">Modifier Heures</button>
+
+                <button class="btn-danger" onclick="deleteUser('${doc.id}')">Supprimer</button>
+            </div>
+        `;
+    });
+
+    content.innerHTML = html;
 }
 
-/* ========================= CODES ========================= */
-function addCode() {
-  const inp = document.getElementById('code-input');
-  const v = inp.value.trim(); if (!v) return;
-  if (data.codes.includes(v)) { toast('Ce code existe déjà', 'err'); return; }
-  data.codes.push(v); save(); inp.value=''; renderCodes(); toast('Code ajouté', 'ok');
-}
-function deleteCode(c) {
-  if (!confirm(`Supprimer le code "${c}" ?`)) return;
-  data.codes = data.codes.filter(x => x !== c); save(); renderCodes(); toast('Code supprimé');
-}
-function quickAddCode() {
-  const v = prompt('Nouveau code (ex: Code 4) :'); if (!v) return;
-  if (data.codes.includes(v)) { toast('Ce code existe déjà', 'err'); return; }
-  data.codes.push(v); save(); renderCodes(); toast('Code ajouté', 'ok');
+async function createUser() {
+    const email = document.getElementById('newEmail').value.trim();
+    const pass = document.getElementById('newPass').value;
+    const nom = document.getElementById('newNom').value.trim();
+    const grade = document.getElementById('newGrade').value.trim();
+
+    if (!email || !pass || !nom || !grade) {
+        alert("Tous les champs sont obligatoires !");
+        return;
+    }
+
+    try {
+        const adminEmail = currentUser.email;
+        const adminPass = prompt("Confirmez votre mot de passe admin pour continuer :");
+
+        const userCred = await auth.createUserWithEmailAndPassword(email, pass);
+
+        await db.collection("users").doc(userCred.user.uid).set({
+            nom: nom,
+            grade: grade,
+            heuresTotales: 0,
+            role: "user",
+            email: email
+        });
+
+        alert(`Utilisateur ${nom} créé avec succès !`);
+
+        // Reconnexion de l'admin
+        await auth.signOut();
+        await auth.signInWithEmailAndPassword(adminEmail, adminPass);
+        
+        showUsers();
+    } catch (e) {
+        alert("Erreur lors de la création : " + e.message);
+    }
 }
 
-/* ========================= FORMATIONS ========================= */
-function createFormation() {
-  const title = document.getElementById('f-title').value.trim();
-  const desc = document.getElementById('f-desc').value.trim();
-  if (!title) { toast('Titre requis', 'err'); return; }
-  data.formations.push({ id: uid('f'), title, description: desc, assignedTo: null });
-  document.getElementById('f-title').value = '';
-  document.getElementById('f-desc').value = '';
-  save(); renderFormations(); toast('Formation créée', 'ok');
-}
-function assignFormation() {
-  const userId = document.getElementById('f-assign-user').value;
-  const formId = document.getElementById('f-assign-form').value;
-  if (!userId || !formId) { toast('Sélectionnez un utilisateur et une formation', 'err'); return; }
-  const f = data.formations.find(x => x.id === formId); if (!f) return;
-  f.assignedTo = userId;
-  const u = data.users.find(x => x.id === userId);
-  if (u && !u.formations.includes(f.title)) u.formations.push(f.title);
-  save(); renderFormations(); renderHeures(); renderUsers(); toast('Formation attribuée', 'ok');
-}
-function deleteFormation(id) {
-  const f = data.formations.find(x => x.id === id); if (!f) return;
-  if (!confirm(`Supprimer la formation "${f.title}" ?`)) return;
-  // Remove from user's formations list if assigned
-  if (f.assignedTo) {
-    const u = data.users.find(x => x.id === f.assignedTo);
-    if (u) u.formations = u.formations.filter(t => t !== f.title);
-  }
-  data.formations = data.formations.filter(x => x.id !== id);
-  save(); renderFormations(); toast('Formation supprimée');
+async function updateField(id, field) {
+    let value;
+    if (field === 'heuresTotales') {
+        value = parseFloat(document.getElementById('heure_' + id).value);
+        if (isNaN(value)) value = 0;
+    } else {
+        value = document.getElementById(field + '_' + id).value.trim();
+    }
+
+    await db.collection("users").doc(id).update({ [field]: value });
+    alert("Mise à jour effectuée !");
 }
 
-/* ========================= HEURES MODAL ========================= */
-let _editingHoursId = null;
-function openHeuresModal(id) {
-  const u = data.users.find(x => x.id === id); if (!u) return;
-  _editingHoursId = id;
-  document.getElementById('eh-name').textContent = u.name;
-  document.getElementById('eh-hours').value = u.hours;
-  openModal('modal-heures');
-}
-function submitHeures() {
-  const u = data.users.find(x => x.id === _editingHoursId); if (!u) return;
-  const h = parseFloat(document.getElementById('eh-hours').value);
-  if (isNaN(h) || h < 0) { toast('Valeur invalide', 'err'); return; }
-  u.hours = h; save(); renderHeures(); renderUsers(); closeModal('modal-heures'); toast('Heures mises à jour', 'ok');
+async function deleteUser(id) {
+    if (confirm("Voulez-vous vraiment supprimer cet utilisateur ?")) {
+        await db.collection("users").doc(id).delete();
+        showUsers();
+    }
 }
 
-/* ========================= USER PAGE ========================= */
-function renderUserPage() {
-  const u = currentUser();
-  if (!u || u.role === 'admin') return;
-  document.getElementById('user-header-sub').textContent = `${u.name} · ${u.grade || '—'}`;
-  document.getElementById('u-hours').textContent = u.hours.toFixed(2);
-  document.getElementById('u-grade').textContent = u.grade || '—';
-  document.getElementById('u-name').textContent = u.name;
-  const ff = document.getElementById('u-formations');
-  ff.innerHTML = u.formations.length
-    ? u.formations.map(f => `<span class="badge-role">${escapeHtml(f)}</span>`).join('')
-    : `<span class="text-sm text-slate-400">Aucune</span>`;
-  // codes select
-  const sel = document.getElementById('u-code');
-  sel.innerHTML = `<option value="">Service requis</option>` + data.codes.map(c => `<option>${escapeHtml(c)}</option>`).join('');
-  // Service display
-  const onDuty = !!data.session?.onDuty;
-  document.getElementById('svc-title').textContent = onDuty ? 'En service' : 'Hors service';
-  document.getElementById('svc-sub').textContent = onDuty ? 'Vous êtes actuellement en service.' : 'Prêt à prendre le service.';
-  document.getElementById('svc-btn-label').textContent = onDuty ? 'Quitter le service' : 'Prendre service';
-  const btn = document.getElementById('svc-btn');
-  btn.classList.toggle('btn-success', !onDuty);
-  btn.classList.toggle('btn-danger', onDuty);
-  document.getElementById('svc-pulse').classList.toggle('on', onDuty);
-  document.getElementById('svc-pulse').textContent = onDuty ? 'LIVE' : 'AU REPOS';
-  document.getElementById('u-update').disabled = !onDuty;
-  // history
-  const hist = document.getElementById('u-history');
-  hist.innerHTML = data.history.length ? data.history.map(h => `
-    <div class="flex items-center gap-4 py-3">
-      <span class="badge-code">${escapeHtml(h.code)}</span>
-      <span class="font-medium">${escapeHtml(h.user)}</span>
-      <span class="ml-auto text-sm text-slate-500">${escapeHtml(h.at)}</span>
-    </div>`).join('') : `<div class="py-3 text-sm text-slate-400">Aucun historique.</div>`;
+// ================= ADMIN - CODES & LIEUX =================
+function showAdmin() {
+    content.innerHTML = `
+        <div class="card">
+            <h2>Gestion des Codes</h2>
+            <input id="newCode" placeholder="Nouveau code (ex: 10-4)">
+            <button class="btn" onclick="addCode()">Ajouter Code</button>
+            <div id="codesList" style="margin-top:15px;"></div>
+        </div>
+
+        <div class="card">
+            <h2>Gestion des Lieux</h2>
+            <input id="newLieu" placeholder="Nouveau lieu (ex: Hôpital Central)">
+            <button class="btn" onclick="addLieu()">Ajouter Lieu</button>
+            <div id="lieuxList" style="margin-top:15px;"></div>
+        </div>
+    `;
+
+    loadCodes();
+    loadLieux();
 }
 
-function toggleService() {
-  const u = currentUser(); if (!u) return;
-  if (!data.session.onDuty) {
-    data.session.onDuty = true;
-    data.session.onDutySince = Date.now();
-    save(); renderUserPage(); toast('Service commencé', 'ok');
-  } else {
-    stopDuty(); renderUserPage(); toast('Service terminé', 'ok');
-  }
-}
-function stopDuty() {
-  const u = currentUser(); if (!u || !data.session?.onDuty) return;
-  const diffHours = (Date.now() - (data.session.onDutySince || Date.now())) / 3_600_000;
-  u.hours = Math.round((u.hours + diffHours) * 100) / 100;
-  data.session.onDuty = false;
-  data.session.onDutySince = null;
-  save();
+async function addCode() {
+    const name = document.getElementById('newCode').value.trim();
+    if (!name) return alert("Veuillez entrer un code");
+    
+    await db.collection("codes").add({ name });
+    loadCodes();
 }
 
-function updateStatus() {
-  if (!data.session?.onDuty) { toast('Vous devez être en service', 'err'); return; }
-  const code = document.getElementById('u-code').value;
-  if (!code) { toast('Sélectionnez un code', 'err'); return; }
-  const u = currentUser();
-  data.history.unshift({ code, user: u.login, at: nowFr() });
-  save(); renderUserPage(); toast('Statut mis à jour', 'ok');
+async function loadCodes() {
+    const snap = await db.collection("codes").get();
+    let html = "";
+    snap.forEach(doc => {
+        html += `<p>${doc.data().name} <button class="btn-danger" onclick="deleteCode('${doc.id}')">Supprimer</button></p>`;
+    });
+    document.getElementById('codesList').innerHTML = html || "<p>Aucun code enregistré.</p>";
 }
 
-/* ========================= UTILS ========================= */
-function escapeHtml(s='') { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-function escapeAttr(s='') { return String(s).replace(/'/g, "\\'"); }
+async function deleteCode(id) {
+    if (confirm("Supprimer ce code ?")) {
+        await db.collection("codes").doc(id).delete();
+        loadCodes();
+    }
+}
+
+// Lieux (identique)
+async function addLieu() {
+    const name = document.getElementById('newLieu').value.trim();
+    if (!name) return alert("Veuillez entrer un lieu");
+    
+    await db.collection("lieux").add({ name });
+    loadLieux();
+}
+
+async function loadLieux() {
+    const snap = await db.collection("lieux").get();
+    let html = "";
+    snap.forEach(doc => {
+        html += `<p>${doc.data().name} <button class="btn-danger" onclick="deleteLieu('${doc.id}')">Supprimer</button></p>`;
+    });
+    document.getElementById('lieuxList').innerHTML = html || "<p>Aucun lieu enregistré.</p>";
+}
+
+async function deleteLieu(id) {
+    if (confirm("Supprimer ce lieu ?")) {
+        await db.collection("lieux").doc(id).delete();
+        loadLieux();
+    }
+}
 </script>
 </body>
 </html>
