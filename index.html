@@ -188,87 +188,69 @@ function showSection(section) {
 
 // ================= SERVICE =================
 // ================= SERVICE AMÉLIORÉ =================
-async function showService() {
-    content.innerHTML = `
-        <div class="card">
-            <h2>🚑 Prise de Service</h2>
-            
-            <!-- Heures totales en GROS -->
-            <div style="text-align:center; margin:20px 0;">
-                <p style="margin:5px 0; color:#7f8c8d;">Heures totales effectuées</p>
-                <h1 id="totalHours" style="font-size:48px; margin:10px 0; color:#2c3e50;">0h 00m</h1>
-            </div>
+// ================= FONCTIONS SERVICE =================
 
-            <!-- Timer du service actuel -->
-            <div style="text-align:center; margin:30px 0;">
-                <p id="statusText" style="font-size:18px; margin:10px 0;">Statut : Hors service</p>
-                <p id="currentTimer" style="font-size:42px; font-weight:bold; color:#27ae60; margin:10px 0;">
-                    00h 00m 00s
-                </p>
-            </div>
-
-            <div style="text-align:center;">
-                <button class="btn-success" style="font-size:18px; padding:14px 30px;" onclick="startService()">
-                    ▶️ DÉMARRER LE SERVICE
-                </button>
-                <button class="btn-danger" style="font-size:18px; padding:14px 30px;" onclick="stopService()">
-                    ⏹️ ARRÊTER LE SERVICE
-                </button>
-            </div>
-        </div>
-
-        <div class="card">
-            <h3>Collègues actuellement en service</h3>
-            <div id="colleaguesList"></div>
-        </div>
-    `;
-
-    // Charger les données
-    await loadTotalHours();
-    await checkCurrentService();
-    await loadColleagues();
-}
-
-// Charger les heures totales en gros
-async function loadTotalHours() {
+async function startService() {
     try {
-        const doc = await db.collection("users").doc(currentUser.uid).get();
-        const hours = doc.data()?.heuresTotales || 0;
-        document.getElementById('totalHours').textContent = formatTime(hours);
+        // Vérifier si l'utilisateur est déjà en service
+        const checkDoc = await db.collection("service").doc(currentUser.uid).get();
+        if (checkDoc.exists) {
+            alert("Vous êtes déjà en service !");
+            return;
+        }
+
+        await db.collection("service").doc(currentUser.uid).set({
+            start: Date.now(),
+            userId: currentUser.uid
+        });
+
+        alert("✅ Service démarré !");
+        checkCurrentService();   // Rafraîchit le timer
+        loadColleagues();        // Met à jour la liste des collègues
+
     } catch (e) {
         console.error(e);
+        alert("Erreur lors du démarrage du service : " + e.message);
     }
 }
 
-// Vérifier et afficher le timer si en service
-async function checkCurrentService() {
-    const doc = await db.collection("service").doc(currentUser.uid).get();
-    const timerEl = document.getElementById('currentTimer');
-    const statusEl = document.getElementById('statusText');
+async function stopService() {
+    try {
+        const serviceRef = db.collection("service").doc(currentUser.uid);
+        const doc = await serviceRef.get();
 
-    if (!doc.exists) {
-        timerEl.textContent = "00h 00m 00s";
-        timerEl.style.color = "#95a5a6";
-        statusEl.textContent = "Statut : Hors service";
-        statusEl.style.color = "#7f8c8d";
-        return;
+        if (!doc.exists) {
+            alert("Vous n'êtes pas en service !");
+            return;
+        }
+
+        const startTime = doc.data().start;
+        const durationHours = (Date.now() - startTime) / 3600000;
+
+        // Ajouter les heures aux heures totales
+        const userRef = db.collection("users").doc(currentUser.uid);
+        const userDoc = await userRef.get();
+        const currentTotal = userDoc.data()?.heuresTotales || 0;
+
+        await userRef.update({
+            heuresTotales: currentTotal + durationHours
+        });
+
+        // Supprimer l'entrée service
+        await serviceRef.delete();
+
+        alert(`✅ Service terminé !\n\nDurée ajoutée : ${durationHours.toFixed(2)} heures`);
+
+        // Rafraîchir l'affichage
+        if (timerInterval) clearInterval(timerInterval);
+        await loadTotalHours();      // Met à jour les heures totales en gros
+        checkCurrentService();       // Remet le timer à zéro
+        loadColleagues();            // Met à jour la liste des collègues
+
+    } catch (e) {
+        console.error(e);
+        alert("Erreur lors de l'arrêt du service : " + e.message);
     }
-
-    const start = doc.data().start;
-
-    if (timerInterval) clearInterval(timerInterval);
-
-    timerInterval = setInterval(() => {
-        const diff = Date.now() - start;
-        const h = Math.floor(diff / 3600000);
-        const m = Math.floor((diff % 3600000) / 60000);
-        const s = Math.floor((diff % 60000) / 1000);
-
-        timerEl.textContent = `${h.toString().padStart(2,'0')}h ${m.toString().padStart(2,'0')}m ${s.toString().padStart(2,'0')}s`;
-        timerEl.style.color = "#27ae60";
-        statusEl.textContent = "Statut : En service";
-        statusEl.style.color = "#27ae60";
-    }, 1000);
 }
 
 // ================= COLLÈGUES EN SERVICE =================
